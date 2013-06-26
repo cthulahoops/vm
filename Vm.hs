@@ -3,6 +3,7 @@ module Vm where
 
 import Data.List
 import Control.Monad.State
+import qualified Data.Map as M
 
 import Debug.Trace
 
@@ -22,6 +23,8 @@ data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Ca
 
 data Val = I Integer | B Bool | S String | CP [Symbol]
     deriving Show
+
+type Table = M.Map String Val
 
 -- exec = fst . pop . execute . tokenize
 -- run = execute . tokenize
@@ -51,29 +54,33 @@ type Vm = StateT MachineState IO
 data MachineState = MachineState {
         machineStackS :: (Stack Val),
         machineCP :: [Symbol],
-        machineStackR :: (Stack Val)
+        machineStackR :: (Stack Val),
+        machineTable :: Table
     } deriving (Show)
 
-runProgram program = execStateT runMachine (MachineState EmptyStack program EmptyStack)
+newMachine program = MachineState EmptyStack program EmptyStack M.empty
+
+runProgram program = execStateT runMachine (newMachine program)
 
 takeInstruction :: Vm (Maybe Symbol)
 takeInstruction = do
     ms <- get
     case ms of 
-        MachineState s (i:is) r -> do
-            put $ MachineState s is r
+        MachineState s (i:is) r t -> do
+            put $ MachineState s is r t
             return $ Just i
-        MachineState s [] r | isEmpty r -> return Nothing
-                            | otherwise -> do
+        MachineState s [] r t | isEmpty r -> return Nothing
+                              | otherwise -> do
                                              let (CP is', r') = pop r
-                                             put $ MachineState s is' r'
+                                             put $ MachineState s is' r' t
                                              takeInstruction
                            
 
 loadInstructions :: [Symbol] -> Vm ()
-loadInstructions cp = do
-    MachineState s is r <- get
-    put $ MachineState s cp (push (CP is) r)
+loadInstructions cp = modify (\m -> m {
+        machineCP     = cp,
+        machineStackR = push (CP $ machineCP m) (machineStackR m)
+        })
 
 runMachine :: Vm ()
 runMachine = do
@@ -146,19 +153,19 @@ boolOp f = do
     I y <- popS
     pushS $ B $ f y x
 
-pushS x = modify (\(MachineState s is r) -> MachineState (push x s) is r)
-pushR x = modify (\(MachineState s is r) -> MachineState s is (push x r))
+pushS x = modify (\m -> m { machineStackS = push x (machineStackS m)})
+pushR x = modify (\m -> m { machineStackR = push x (machineStackR m)})
 
 popS :: Vm Val
 popS = do
-    MachineState s is r <- get
-    let (x, s') = pop s
-    put $ MachineState s' is r 
+    m <- get
+    let (x, s') = pop (machineStackS m)
+    put $ m {machineStackS = s'}
     return x
 
 popR :: Vm Val
 popR = do
-    MachineState s is r <- get
-    let (x, r') = pop r
-    put $ MachineState s is r' 
+    m <- get
+    let (x, r') = pop (machineStackR m)
+    put $ m {machineStackR = r'}
     return x
