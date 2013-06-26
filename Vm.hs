@@ -87,8 +87,6 @@ runMachine = do
     next <- takeInstruction
     case next of
         Just i  -> do
-            liftIO $ putStr "Instruction: "
-            liftIO $ print i
             apply i
             (get >>= liftIO . print)
             runMachine
