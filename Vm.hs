@@ -18,7 +18,7 @@ isEmpty (Stack _ _) = False
 data Symbol = Value Val | Instruction Ins 
     deriving Show
 
-data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Call | Save | Rot | DropR
+data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Call | Save | Rot | DropR | Store | Lookup
     deriving Show
 
 data Val = I Integer | B Bool | S String | CP [Symbol]
@@ -136,6 +136,17 @@ execInstruction If = do
 execInstruction Call = do
     CP cp <- popS
     loadInstructions cp
+
+execInstruction Store = do
+    S key <- popS
+    value <- popS
+    modify (\m -> m {machineTable = M.insert key value (machineTable m)})
+
+execInstruction Lookup = do
+    S key <- popS
+    table <- gets machineTable
+    let Just value = M.lookup key table
+    pushS value
 
 execInstruction Save = do
     cp <- gets machineCP
