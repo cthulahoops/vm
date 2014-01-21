@@ -18,36 +18,15 @@ isEmpty (Stack _ _) = False
 data Symbol = Value Val | Instruction Ins 
     deriving Show
 
-data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Call | Save | Rot | DropR | Store | Lookup
+data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Call | Save | Rot | Drop | Store | Lookup | Cons | DeCons
     deriving Show
 
-data Val = I Integer | B Bool | S String | CP [Symbol]
+data Val = I Integer | B Bool | S String | CP [Symbol] Env | C Val Val
     deriving Show
+
+type Env = [Table]
 
 type Table = M.Map String Val
-
--- exec = fst . pop . execute . tokenize
--- run = execute . tokenize
-
-tokenize = map toToken . words
-toToken "+" = Instruction Add
-toToken "-" = Instruction Sub
-toToken "*" = Instruction Mul
-toToken ">" = Instruction Gt
-toToken ">=" = Instruction Ge
-toToken "<=" = Instruction Le
-toToken "<" = Instruction Lt
-toToken "=" = Instruction Eq
-toToken "dup" = Instruction Dup
-toToken "flip" = Instruction Flip
-toToken "not" = Instruction Not
-toToken "if" = Instruction If
-toToken s@(x:xs) | x >= '0' && x <= '9' = Value $ I $ read s
-toToken "true" = Value $ B True
-toToken "false" = Value $ B False
-toToken (':':xs) = Value $ S xs
-
--- execute p = foldl' apply EmptyStack p
 
 type Vm = StateT MachineState IO
 
@@ -55,12 +34,12 @@ data MachineState = MachineState {
         machineStackS :: (Stack Val),
         machineCP :: [Symbol],
         machineStackR :: (Stack Val),
-        machineTable :: Table
+        machineEnv :: Env
     } deriving (Show)
 
-newMachine program = MachineState EmptyStack program EmptyStack M.empty
+newMachine program = MachineState EmptyStack program EmptyStack envNew
 
-runProgram program = execStateT runMachine (newMachine program)
+runProgram program = evalStateT (runMachine >> popS) (newMachine program)
 
 takeInstruction :: Vm (Maybe Symbol)
 takeInstruction = do
@@ -71,15 +50,16 @@ takeInstruction = do
             return $ Just i
         MachineState s [] r t | isEmpty r -> return Nothing
                               | otherwise -> do
-                                             let (CP is', r') = pop r
-                                             put $ MachineState s is' r' t
+                                             let (CP is' env, r') = pop r
+                                             put $ MachineState s is' r' env
                                              takeInstruction
                            
 
-loadInstructions :: [Symbol] -> Vm ()
-loadInstructions cp = modify (\m -> m {
+loadInstructions :: [Symbol] -> Env -> Vm ()
+loadInstructions cp env = modify (\m -> m {
         machineCP     = cp,
-        machineStackR = push (CP $ machineCP m) (machineStackR m)
+        machineEnv    = env,
+        machineStackR = push (CP (machineCP m) (machineEnv m)) (machineStackR m)
         })
 
 runMachine :: Vm ()
@@ -88,10 +68,12 @@ runMachine = do
     case next of
         Just i  -> do
             apply i
-            (get >>= liftIO . print)
             runMachine
         Nothing -> return ()
 
+apply (Value (CP symbols [])) = do
+    env <- gets machineEnv
+    pushS (CP symbols (M.empty:env))
 apply (Value x)       = pushS x
 apply (Instruction i) = execInstruction i
 
@@ -124,33 +106,46 @@ execInstruction Rot = do
     pushS y
     
 execInstruction If = do
-    CP e <- popS
-    CP t <- popS
+    CP e ee <- popS
+    CP t te <- popS
     B c <- popS
-    pushS $ if c then CP t else CP e 
-    (get >>= liftIO . print)
+    pushS $ if c then CP t te else CP e ee
     execInstruction Call
 
 execInstruction Call = do
-    CP cp <- popS
-    loadInstructions cp
+    CP cp env <- popS
+    loadInstructions cp env
 
 execInstruction Store = do
     S key <- popS
     value <- popS
-    modify (\m -> m {machineTable = M.insert key value (machineTable m)})
+    modify (\m -> m {machineEnv = envStore key value (machineEnv m)})
 
 execInstruction Lookup = do
     S key <- popS
-    table <- gets machineTable
-    let Just value = M.lookup key table
-    pushS value
+    env <- gets machineEnv
+    case envLookup key env of
+        Just value ->
+            pushS value
+        Nothing ->
+            fail $ "undefined variable: " ++ show key
 
 execInstruction Save = do
-    cp <- gets machineCP
-    pushR $ CP (Instruction Save : cp)
+    cp  <- gets machineCP
+    env <- gets machineEnv
+    pushR $ CP (Instruction Save : cp) env
 
-execInstruction DropR = popR >> return ()
+execInstruction Drop = popS >> return ()
+
+execInstruction Cons = do
+    x <- popS
+    y <- popS
+    pushS $ C x y
+
+execInstruction DeCons = do
+    C x y <- popS
+    pushS $ x
+    pushS $ y
 
 numOp f = do
     I x <- popS
@@ -178,3 +173,12 @@ popR = do
     let (x, r') = pop (machineStackR m)
     put $ m {machineStackR = r'}
     return x
+
+--- Environment modification:
+envStore key value (e:es) = M.insert key value e : es 
+
+envLookup key (e:es) = case M.lookup key e of
+    Just value -> Just value
+    Nothing    -> envLookup key es
+envLookup key [] = Nothing
+envNew = [M.empty]
