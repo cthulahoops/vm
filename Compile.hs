@@ -28,29 +28,35 @@ optimise (":<":"!":"call":xs) = "<":optimise xs
 optimise (":>":"!":"call":xs) = ">":optimise xs
 optimise (":-":"!":"call":xs) = "-":optimise xs
 optimise (":+":"!":"call":xs) = "+":optimise xs
-optimise (":*":"!":"call":xs) = "+":optimise xs
-optimise (":/":"!":"call":xs) = "+":optimise xs
+optimise (":*":"!":"call":xs) = "*":optimise xs
+optimise (":/":"!":"call":xs) = "-":optimise xs
 optimise (x:xs) = x:optimise xs
 optimise [] = []
 
 -- Parser - probably separate.
-parse = fst . parse'
+parse = fst . parse' . splitTokens
 
-parse' :: String -> ([SExpr], String)
-parse' ""       = ([], [])
-parse' ('(':xs) = (SExpr this:that, rest')
+parse' :: [String] -> ([SExpr], [String])
+parse' []       = ([], [])
+parse' ("(":xs) = (SExpr this:that, rest')
     where (this, rest)  = parse' xs
           (that, rest') = parse' rest
-parse' (')':xs) = ([], xs)
-parse' (' ':xs) = parse' xs
-parse' xs = (parseSymbol this:that, rest')
-    where (this, rest)  = splitToken xs
-          (that, rest') = parse' rest          
+parse' (")":xs) = ([], xs)
+parse' (x:xs) = (parseSymbol x:that, rest)
+    where (that, rest) = parse' xs          
 
-parseSymbol xs@(x:_) | x >='0' && x <= '9' = SInt (read xs)
-                     | otherwise           = SSymbol xs
+parseSymbol x | isNumber x = SInt (read x)
+              | otherwise       = SSymbol x
 
-splitToken (' ':xs) = ("", xs)
-splitToken (')':xs) = ("", ')':xs)
-splitToken (x:xs) = (x:this, rest)
-    where (this, rest) = splitToken xs
+isNumber = all isDigit
+isDigit  x = x >= '0' && x <= '9'
+isSymbol x = x >= '*' && x <= '?' || x >= '^' && x <= 'z'
+
+splitTokens :: String -> [String]
+splitTokens "" = []
+splitTokens ('\'':xs) = "'" : splitTokens xs
+splitTokens ('(':xs) = "(" : splitTokens xs
+splitTokens (')':xs) = ")" : splitTokens xs
+splitTokens (' ':xs) = splitTokens xs
+splitTokens (x:xs) | isSymbol x = let (token, tail) = break (not.isSymbol) xs in (x:token) : splitTokens tail
+
