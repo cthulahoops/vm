@@ -4,15 +4,22 @@ import Control.Applicative
 import Data.List
 import Assemble
 import Vm
+import Control.Monad.State
+import System.Console.Readline
 
 data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SQuote SExpr
     deriving Show
 
 repl = do
-    code <- getLine
-    let program = (assemble.compile.parse) code
-    result <- runProgram program
-    return result
+        core <- readFile "lib/core.s"
+        machine <- execStateT runMachine (newMachine (assemble core))
+        loop machine
+    where loop machine = do
+                Just code <- readline ">>> "
+                let program = (assemble.compile.parse) code
+                (result, machine'') <- runStateT (runMachine >> popS) (machine {machineCP = program})
+                print result
+                loop machine''
 
 lisp = run . compile . parse
 
@@ -21,9 +28,7 @@ example2 = SExpr [SSymbol "+", SInt 7, SInt 3]
 example3 = SExpr [SSymbol "+", SInt 7, SExpr [SSymbol "-", SInt 6, SInt 2]]
 example4 = SExpr [SSymbol "+", SInt 4, SInt 3, SInt 2, SInt 1]
 
-header = "[ ` drop ] :car def [ ` flip drop ] :cdr def [ , ] :cons def "
-
-compile text = header ++ (concat . intersperse " " . optimise . concat . map compileTokens) text
+compile = concat . intersperse " " . optimise . concat . map compileTokens
 
 compileTokens (SInt x)       = [show x]
 compileTokens (SQuote expr)  = compileQuoted expr
@@ -41,7 +46,7 @@ compileQuoted (SInt x)       = [show x]
 
 block instructions = ["["] ++ instructions ++ ["]"]
 
-optimise (":=":"!":"call":xs) = "!":optimise xs
+optimise (":=":"!":"call":xs) = "=":optimise xs
 optimise (":<":"!":"call":xs) = "<":optimise xs
 optimise (":>":"!":"call":xs) = ">":optimise xs
 optimise (":-":"!":"call":xs) = "-":optimise xs
@@ -78,5 +83,6 @@ splitTokens ('\'':xs) = "'" : splitTokens xs
 splitTokens ('(':xs) = "(" : splitTokens xs
 splitTokens (')':xs) = ")" : splitTokens xs
 splitTokens (' ':xs) = splitTokens xs
+splitTokens ('\n':xs) = splitTokens xs
+splitTokens ('\t':xs) = splitTokens xs
 splitTokens (x:xs) | isSymbol x = let (token, tail) = break (not.isSymbol) xs in (x:token) : splitTokens tail
-

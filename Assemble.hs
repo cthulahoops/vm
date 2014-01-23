@@ -50,4 +50,5 @@ toSymbol "`" = Instruction DeCons
 toSymbol s@(x:xs) | x >= '0' && x <= '9' = Value $ I $ read s
 toSymbol "true" = Value $ B True
 toSymbol "false" = Value $ B False
+toSymbol "nil"   = Value $ Nil
 toSymbol (':':xs) = Value $ S xs

@@ -11,18 +11,19 @@ data Stack a = Stack a (Stack a) | EmptyStack
     deriving Show
 
 push x stack = Stack x stack
-pop (Stack x stack) = (x, stack)
+pop (Stack x stack) = Just (x, stack)
+pop EmptyStack      = Nothing
 isEmpty EmptyStack  = True
 isEmpty (Stack _ _) = False
 
 data Symbol = Value Val | Instruction Ins 
-    deriving Show
+    deriving (Show, Eq)
 
 data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Call | Save | Rot | Drop | Store | Lookup | Cons | DeCons
-    deriving Show
+    deriving (Show, Eq)
 
-data Val = I Integer | B Bool | S String | CP [Symbol] Env | C Val Val
-    deriving Show
+data Val = I Integer | B Bool | S String | CP [Symbol] Env | C Val Val | Nil
+    deriving (Show, Eq)
 
 type Env = [Table]
 
@@ -50,7 +51,7 @@ takeInstruction = do
             return $ Just i
         MachineState s [] r t | isEmpty r -> return Nothing
                               | otherwise -> do
-                                             let (CP is' env, r') = pop r
+                                             let Just (CP is' env, r') = pop r
                                              put $ MachineState s is' r' env
                                              takeInstruction
                            
@@ -58,7 +59,7 @@ takeInstruction = do
 loadInstructions :: [Symbol] -> Env -> Vm ()
 loadInstructions cp env = modify (\m -> m {
         machineCP     = cp,
-        machineEnv    = env,
+        machineEnv    = env ++ machineEnv m,
         machineStackR = push (CP (machineCP m) (machineEnv m)) (machineStackR m)
         })
 
@@ -82,7 +83,11 @@ execInstruction Mul  = numOp (*)
 execInstruction Sub  = numOp (-)
 execInstruction Gt   = boolOp (>)
 execInstruction Lt   = boolOp (<)
-execInstruction Eq   = boolOp (==)
+execInstruction Eq   = do
+    x <- popS
+    y <- popS
+    pushS $ B $ x == y
+
 execInstruction Ge   = boolOp (>=)
 execInstruction Le   = boolOp (<=)
 execInstruction Not  = do
@@ -140,7 +145,7 @@ execInstruction Drop = popS >> return ()
 execInstruction Cons = do
     x <- popS
     y <- popS
-    pushS $ C x y
+    pushS $ C y x
 
 execInstruction DeCons = do
     C x y <- popS
@@ -163,14 +168,17 @@ pushR x = modify (\m -> m { machineStackR = push x (machineStackR m)})
 popS :: Vm Val
 popS = do
     m <- get
-    let (x, s') = pop (machineStackS m)
-    put $ m {machineStackS = s'}
-    return x
+    case pop (machineStackS m) of
+        Just (x, s') -> do
+            put $ m {machineStackS = s'}
+            return x
+        Nothing ->
+            return Nil
 
 popR :: Vm Val
 popR = do
     m <- get
-    let (x, r') = pop (machineStackR m)
+    let Just (x, r') = pop (machineStackR m)
     put $ m {machineStackR = r'}
     return x
 
