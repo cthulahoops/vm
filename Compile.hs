@@ -36,15 +36,9 @@ compileQuoted (SInt x)       = [show x]
 
 block instructions = ["["] ++ instructions ++ ["]"]
 
-optimise (":=":"!":"call":xs) = "=":optimise xs
-optimise (":<":"!":"call":xs) = "<":optimise xs
-optimise (":>":"!":"call":xs) = ">":optimise xs
-optimise (":-":"!":"call":xs) = "-":optimise xs
-optimise (":+":"!":"call":xs) = "+":optimise xs
-optimise (":*":"!":"call":xs) = "*":optimise xs
-optimise (":/":"!":"call":xs) = "-":optimise xs
-optimise (x:xs) = x:optimise xs
-optimise [] = []
+optimise = id
+-- optimise (x:xs) = x:optimise xs
+-- optimise [] = []
 
 -- Parser - probably separate.
 parse = fst . parse' . splitTokens
