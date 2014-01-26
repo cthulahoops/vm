@@ -23,13 +23,14 @@ transform :: SExpr -> SExpr
 transform (SExpr ((SSymbol "let"):SExpr bindings:body)) = SExpr (SExpr (SSymbol "lambda":SExpr vars:body):values)
     where (vars, values) = unzip $ map toPair bindings
           toPair (SExpr [SSymbol x, expr]) = (SSymbol x, expr)
+transform (SExpr (SSymbol "define":SExpr (SSymbol name:vars): body))
+    | all (\(SSymbol s) -> True) vars = SExpr [SSymbol "define", SSymbol name, SExpr ((SSymbol "lambda":SExpr vars:body))]
 transform x = x
 
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
 compileExpr (SInt x)       = [show x]
 compileExpr (SQuote expr)  = compileQuoted expr
-compileExpr (SExpr (SSymbol "define":SExpr (SSymbol name:vars): body)) | all (\(SSymbol s) -> True) vars = compileTokens (SExpr [SSymbol "define", SSymbol name, SExpr ((SSymbol "lambda":SExpr vars:body))])
 compileExpr (SExpr [SSymbol "define", SSymbol name, body]) = compileTokens body ++ [":" ++ name, "def", "nil"]
 compileExpr (SExpr (SSymbol "lambda":SExpr vars:body)) = ["&"] ++ block ( ["{}", "$"] ++ reverse [":" ++ x ++ " def" | SSymbol x <- vars] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
 compileExpr (SExpr [(SSymbol "if"), cond, true_branch, false_branch]) = block(compileTokens true_branch) ++ block(compileTokens false_branch) ++ compileTokens cond ++ ["if", "jmp"]
