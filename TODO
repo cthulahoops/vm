@@ -18,6 +18,8 @@ TODO
 * Tail call optimisation.
 * Macros
 * IO
+* Compiler should produce VM ready code, replace mis-named Assemble.hs with disk serialisation/deserialisation.
+* Support comments in vmcode files, and add #!Run lines to output.
 
 DONE
 

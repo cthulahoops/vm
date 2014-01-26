@@ -69,10 +69,10 @@ runMachine = do
     next <- takeInstruction
     case next of
         Just i  -> do
+--            liftIO $ print i 
             apply i
 --            stack <- (gets machineStackS)
 --            code  <- (gets machineCP)
---            liftIO $ print i 
 --            liftIO $ putStr "<<< "
 --            liftIO $ print code
 --            liftIO $ putStr "*** "
@@ -148,12 +148,12 @@ execInstruction Drop = popS >> return ()
 execInstruction Cons = do
     x <- popS
     y <- popS
-    pushS $ C y x
+    pushS $ C x y
 
 execInstruction DeCons = do
     C x y <- popS
-    pushS $ x
     pushS $ y
+    pushS $ x
 
 execInstruction SaveEnv = do
     env <- gets machineEnv

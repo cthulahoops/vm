@@ -46,12 +46,14 @@ compileQuoted (SSymbol x)    = [":" ++ x]
 compileQuoted (SInt x)       = [show x]
 
 makeIf cond true_branch false_branch = block(compileTokens true_branch) ++ block(compileTokens false_branch) ++ compileTokens cond ++ ["if", "jmp"]
-makeLambda vars body = ["&"] ++ block (["{}", "$"] ++ reverse [":" ++ x ++ " def" | SSymbol x <- vars] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
+
+makeLambda vars body = ["&"] ++ block (["{}", "$"] ++ concat [["`", ":" ++ x, "def"] | SSymbol x <- vars] ++ ["drop"] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
 
 block instructions = ["["] ++ instructions ++ ["]"]
 
 applyLambda :: SExpr -> SExpr -> [Tok]
-applyLambda function (SExpr args) = ["&"] ++ concat (map compileTokens args) ++ compileTokens function ++ ["`", "jmp", "flip", "$"]
+applyLambda function (SExpr args) = ["&"] ++ compiledArgs ++ compileTokens function ++ ["`", "jmp", "flip", "$"]
+    where compiledArgs = ["nil"] ++ concat (map (\x -> compileTokens x ++ [","]) (reverse args))
 
 optimise = id
 -- optimise (x:xs) = x:optimise xs
