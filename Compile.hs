@@ -10,11 +10,6 @@ data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SQuote SExpr
 
 lisp = run . compile . parse
 
-example1 = SInt 42
-example2 = SExpr [SSymbol "+", SInt 7, SInt 3]
-example3 = SExpr [SSymbol "+", SInt 7, SExpr [SSymbol "-", SInt 6, SInt 2]]
-example4 = SExpr [SSymbol "+", SInt 4, SInt 3, SInt 2, SInt 1]
-
 compile = concat . intersperse " " . optimise . concat . map compileTokens
 
 compileTokens = compileExpr . transform
