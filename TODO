@@ -2,7 +2,6 @@ TODO
 
 * Garbage Collection
 * Mutable Cons Cells
-* (let*
 * (letrec
 * (begin
 * (lambda x
@@ -19,3 +18,4 @@ TODO
 DONE
 
 * (let
+* (let*

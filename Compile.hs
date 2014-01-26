@@ -20,6 +20,8 @@ transform :: SExpr -> SExpr
 transform (SExpr ((SSymbol "let"):SExpr bindings:body)) = SExpr (SExpr (SSymbol "lambda":SExpr vars:body):values)
     where (vars, values) = unzip $ map toPair bindings
           toPair (SExpr [SSymbol x, expr]) = (SSymbol x, expr)
+transform (SExpr (SSymbol "let*":SExpr [binding]:body)) = transform $ SExpr (SSymbol "let":SExpr [binding]:body)
+transform (SExpr (SSymbol "let*":SExpr (binding:bindings):body)) = transform $ SExpr [SSymbol "let", SExpr [binding], SExpr (SSymbol "let*":SExpr bindings:body)]
 transform (SExpr (SSymbol "define":SExpr (SSymbol name:vars): body))
     | all (\(SSymbol s) -> True) vars = SExpr [SSymbol "define", SSymbol name, SExpr ((SSymbol "lambda":SExpr vars:body))]
 transform x = x
