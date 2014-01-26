@@ -1,6 +1,7 @@
+TODO
+
 * Garbage Collection
 * Mutable Cons Cells
-* (let
 * (let*
 * (letrec
 * (begin
@@ -14,3 +15,7 @@
 * Tail call optimisation.
 * Macros
 * IO
+
+DONE
+
+* (let

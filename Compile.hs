@@ -17,17 +17,25 @@ example4 = SExpr [SSymbol "+", SInt 4, SInt 3, SInt 2, SInt 1]
 
 compile = concat . intersperse " " . optimise . concat . map compileTokens
 
+compileTokens = compileExpr . transform
+
+transform :: SExpr -> SExpr
+transform (SExpr ((SSymbol "let"):SExpr bindings:body)) = SExpr (SExpr (SSymbol "lambda":SExpr vars:body):values)
+    where (vars, values) = unzip $ map toPair bindings
+          toPair (SExpr [SSymbol x, expr]) = (SSymbol x, expr)
+transform x = x
+
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
-compileTokens (SInt x)       = [show x]
-compileTokens (SQuote expr)  = compileQuoted expr
-compileTokens (SExpr (SSymbol "define":SExpr (SSymbol name:vars): body)) | all (\(SSymbol s) -> True) vars = compileTokens (SExpr [SSymbol "define", SSymbol name, SExpr ((SSymbol "lambda":SExpr vars:body))])
-compileTokens (SExpr [SSymbol "define", SSymbol name, body]) = compileTokens body ++ [":" ++ name, "def", "nil"]
-compileTokens (SExpr (SSymbol "lambda":SExpr vars:body)) = ["&"] ++ block ( ["{}", "$"] ++ reverse [":" ++ x ++ " def" | SSymbol x <- vars] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
-compileTokens (SExpr [(SSymbol "if"), cond, true_branch, false_branch]) = block(compileTokens true_branch) ++ block(compileTokens false_branch) ++ compileTokens cond ++ ["if", "jmp"]
-compileTokens (SExpr (x:xs)) = ["&"] ++ concat (map compileTokens xs) ++ compileTokens x ++ ["`", "jmp", "flip", "$"]
-compileTokens (SExpr [])     = [] 
-compileTokens (SSymbol x)    = [":" ++ x, "!"]
+compileExpr (SInt x)       = [show x]
+compileExpr (SQuote expr)  = compileQuoted expr
+compileExpr (SExpr (SSymbol "define":SExpr (SSymbol name:vars): body)) | all (\(SSymbol s) -> True) vars = compileTokens (SExpr [SSymbol "define", SSymbol name, SExpr ((SSymbol "lambda":SExpr vars:body))])
+compileExpr (SExpr [SSymbol "define", SSymbol name, body]) = compileTokens body ++ [":" ++ name, "def", "nil"]
+compileExpr (SExpr (SSymbol "lambda":SExpr vars:body)) = ["&"] ++ block ( ["{}", "$"] ++ reverse [":" ++ x ++ " def" | SSymbol x <- vars] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
+compileExpr (SExpr [(SSymbol "if"), cond, true_branch, false_branch]) = block(compileTokens true_branch) ++ block(compileTokens false_branch) ++ compileTokens cond ++ ["if", "jmp"]
+compileExpr (SExpr (x:xs)) = ["&"] ++ concat (map compileTokens xs) ++ compileTokens x ++ ["`", "jmp", "flip", "$"]
+compileExpr (SExpr [])     = [] 
+compileExpr (SSymbol x)    = [":" ++ x, "!"]
 
 compileQuoted (SExpr [])     = ["nil"]
 compileQuoted (SExpr (x:xs)) = compileQuoted (SExpr xs) ++ compileQuoted x ++ [","]
