@@ -1,12 +1,15 @@
+import Control.Applicative
+import Control.Monad.State
+import System.Console.Readline
 import Vm
 import Assemble
 import Compile
-import Control.Monad.State
-import System.Console.Readline
 
 main = do
-        core <- readFile "lib/core.s"
-        machine <- execStateT runMachine (newMachine (assemble core))
+        core   <- readFile "lib/core.s"
+        stdlib <- compile.parse <$> readFile "lib/stdlib.ss"
+        let lib = core ++ stdlib
+        machine <- execStateT runMachine (newMachine (assemble lib))
         loop machine
     where loop machine = do
                 readline ">>> " >>= \x -> case x of
