@@ -5,11 +5,11 @@ all: ${PROGS}
 clean:
 	-rm *.o *.hi ${PROGS}
 
-LispC: LispC.hs Assemble.hs Compile.hs Vm.hs
+LispC: LispC.hs Assemble.hs Compile.hs Vm.hs Env.hs
 	ghc --make -o LispC LispC.hs
 
-Run: Run.hs Assemble.hs Vm.hs
+Run: Run.hs Assemble.hs Vm.hs Env.hs
 	ghc --make -o Run Run.hs
 
-Repl: Repl.hs Assemble.hs Compile.hs Vm.hs
+Repl: Repl.hs Assemble.hs Compile.hs Vm.hs Env.hs
 	ghc --make -o Repl Repl.hs
