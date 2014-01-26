@@ -18,7 +18,7 @@ assemble text = program
 tokenize = map toToken . words
 
 lexer (Sym s:xs) = let (this, rest) = lexer xs in (s:this, rest)
-lexer (Start:xs) = (Value (CP this []):that, rest')
+lexer (Start:xs) = (Value (CP this):that, rest')
     where (this, rest)  = lexer xs
           (that, rest') = lexer rest
 lexer (End:xs) = ([], xs)
@@ -41,12 +41,15 @@ toSymbol "flip" = Instruction Flip
 toSymbol "def" = Instruction Store
 toSymbol "!" = Instruction Lookup
 toSymbol "rot" = Instruction Rot
-toSymbol "call" = Instruction Call
+toSymbol "jmp" = Instruction Jmp
 toSymbol "not" = Instruction Not
 toSymbol "if" = Instruction If
 toSymbol "drop" = Instruction Drop
 toSymbol "," = Instruction Cons
 toSymbol "`" = Instruction DeCons
+toSymbol "&" = Instruction SaveEnv
+toSymbol "{}" = Instruction NewFrame
+toSymbol "$" = Instruction LoadEnv
 toSymbol s@(x:xs) | x >= '0' && x <= '9' = Value $ I $ read s
 toSymbol "true" = Value $ B True
 toSymbol "false" = Value $ B False

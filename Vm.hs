@@ -7,6 +7,8 @@ import qualified Data.Map as M
 
 import Debug.Trace
 
+import Env
+
 data Stack a = Stack a (Stack a) | EmptyStack
     deriving Show
 
@@ -19,26 +21,26 @@ isEmpty (Stack _ _) = False
 data Symbol = Value Val | Instruction Ins 
     deriving (Show, Eq)
 
-data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Call | Save | Rot | Drop | Store | Lookup | Cons | DeCons
+data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Jmp | Save | Rot | Drop | Store | Lookup | Cons | DeCons | SaveEnv | LoadEnv | NewFrame
     deriving (Show, Eq)
 
-data Val = I Integer | B Bool | S String | CP [Symbol] Env | C Val Val | Nil
+data Val = I Integer | B Bool | S String | CP [Symbol] | C Val Val | P Ptr | Nil
     deriving (Show, Eq)
-
-type Env = [Table]
 
 type Table = M.Map String Val
 
 type Vm = StateT MachineState IO
 
+type VmEnv = Env String Val
+
 data MachineState = MachineState {
         machineStackS :: (Stack Val),
-        machineCP :: [Symbol],
+        machineCP     :: [Symbol],
         machineStackR :: (Stack Val),
-        machineEnv :: Env
+        machineEnv    :: VmEnv
     } deriving (Show)
 
-newMachine program = MachineState EmptyStack program EmptyStack envNew
+newMachine program = MachineState EmptyStack program EmptyStack newEnv
 
 runProgram program = evalStateT (runMachine >> popS) (newMachine program)
 
@@ -46,21 +48,20 @@ takeInstruction :: Vm (Maybe Symbol)
 takeInstruction = do
     ms <- get
     case ms of 
-        MachineState s (i:is) r t -> do
-            put $ MachineState s is r t
+        MachineState s (i:instructions) r t -> do
+            put $ MachineState s instructions r t
             return $ Just i
         MachineState s [] r t | isEmpty r -> return Nothing
                               | otherwise -> do
-                                             let Just (CP is' env, r') = pop r
-                                             put $ MachineState s is' r' env
+                                             let Just (CP instructions', r') = pop r
+                                             put $ MachineState s instructions' r' t
                                              takeInstruction
                            
 
-loadInstructions :: [Symbol] -> Env -> Vm ()
-loadInstructions cp env = modify (\m -> m {
+loadInstructions :: [Symbol] -> Vm ()
+loadInstructions cp = modify (\m -> m {
         machineCP     = cp,
-        machineEnv    = env ++ machineEnv m,
-        machineStackR = push (CP (machineCP m) (machineEnv m)) (machineStackR m)
+        machineStackR = push (CP (machineCP m)) (machineStackR m)
         })
 
 runMachine :: Vm ()
@@ -69,12 +70,16 @@ runMachine = do
     case next of
         Just i  -> do
             apply i
+--            stack <- (gets machineStackS)
+--            code  <- (gets machineCP)
+--            liftIO $ print i 
+--            liftIO $ putStr "<<< "
+--            liftIO $ print code
+--            liftIO $ putStr "*** "
+--            liftIO $ print stack
             runMachine
         Nothing -> return ()
 
-apply (Value (CP symbols [])) = do
-    env <- gets machineEnv
-    pushS (CP symbols (M.empty:env))
 apply (Value x)       = pushS x
 apply (Instruction i) = execInstruction i
 
@@ -111,15 +116,14 @@ execInstruction Rot = do
     pushS y
     
 execInstruction If = do
-    CP e ee <- popS
-    CP t te <- popS
-    B c <- popS
-    pushS $ if c then CP t te else CP e ee
-    execInstruction Call
+    B  c <- popS
+    _else <- popS
+    _then <- popS
+    pushS (if c then _then else _else)
 
-execInstruction Call = do
-    CP cp env <- popS
-    loadInstructions cp env
+execInstruction Jmp = do
+    CP cp <- popS
+    loadInstructions cp
 
 execInstruction Store = do
     S key <- popS
@@ -137,8 +141,7 @@ execInstruction Lookup = do
 
 execInstruction Save = do
     cp  <- gets machineCP
-    env <- gets machineEnv
-    pushR $ CP (Instruction Save : cp) env
+    pushR $ CP (Instruction Save : cp)
 
 execInstruction Drop = popS >> return ()
 
@@ -151,6 +154,24 @@ execInstruction DeCons = do
     C x y <- popS
     pushS $ x
     pushS $ y
+
+execInstruction SaveEnv = do
+    env <- gets machineEnv
+    pushS $ P $ envPtr env
+
+execInstruction NewFrame = do
+    parent <- popS
+    let ptr = case parent of Nil   -> Nothing
+                             P ptr -> Just ptr
+    machine <- get
+    let env = machineEnv machine
+    let (newPtr, env') = envFrame ptr env
+    put $ machine {machineEnv = env'}
+    pushS $ (P newPtr)
+
+execInstruction LoadEnv = do
+    P ptr <- popS
+    modify (\m -> m {machineEnv = envSwitch ptr (machineEnv m)})
 
 numOp f = do
     I x <- popS
@@ -181,12 +202,3 @@ popR = do
     let Just (x, r') = pop (machineStackR m)
     put $ m {machineStackR = r'}
     return x
-
---- Environment modification:
-envStore key value (e:es) = M.insert key value e : es 
-
-envLookup key (e:es) = case M.lookup key e of
-    Just value -> Just value
-    Nothing    -> envLookup key es
-envLookup key [] = Nothing
-envNew = [M.empty]
