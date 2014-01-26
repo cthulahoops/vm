@@ -5,7 +5,7 @@ import Data.List
 import Assemble
 import Vm
 
-data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SQuote SExpr
+data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SBool Bool | SQuote SExpr
     deriving Show
 
 type Tok = String
@@ -29,6 +29,8 @@ transform x = x
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
 compileExpr (SInt x)       = [show x]
+compileExpr (SBool True)   = ["true"]
+compileExpr (SBool False)  = ["false"]
 compileExpr (SQuote expr)  = compileQuoted expr
 compileExpr (SExpr [SSymbol "define", SSymbol name, body]) = compileTokens body ++ [":" ++ name, "def", "nil"]
 compileExpr (SExpr (SSymbol "lambda":SExpr vars:body)) = makeLambda vars body
@@ -69,6 +71,8 @@ parse' (")":xs) = ([], xs)
 parse' (x:xs) = (parseSymbol x:that, rest)
     where (that, rest) = parse' xs          
 
+parseSymbol "#t" = SBool True
+parseSymbol "#f" = SBool False
 parseSymbol x | isNumber x = SInt (read x)
               | otherwise       = SSymbol x
 
@@ -81,7 +85,10 @@ splitTokens "" = []
 splitTokens ('\'':xs) = "'" : splitTokens xs
 splitTokens ('(':xs) = "(" : splitTokens xs
 splitTokens (')':xs) = ")" : splitTokens xs
+splitTokens ('#':'t':xs) = "#t" : splitTokens xs
+splitTokens ('#':'f':xs) = "#f" : splitTokens xs
 splitTokens (' ':xs) = splitTokens xs
 splitTokens ('\n':xs) = splitTokens xs
 splitTokens ('\t':xs) = splitTokens xs
 splitTokens (x:xs) | isSymbol x = let (token, tail) = break (not.isSymbol) xs in (x:token) : splitTokens tail
+

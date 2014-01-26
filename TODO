@@ -6,6 +6,10 @@ TODO
 * (begin
 * (lambda x
 * (lambda (x . y)
+* (cond
+* Varargs for +, -, *, etc.
+* (and & (or
+* Standard library.
 * Smarter parser (unmatched (
 * Strings
 * Non-integers
@@ -19,3 +23,4 @@ DONE
 
 * (let
 * (let*
+* Boolean literals
