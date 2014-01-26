@@ -9,8 +9,12 @@ main = do
         machine <- execStateT runMachine (newMachine (assemble core))
         loop machine
     where loop machine = do
-                Just code <- readline ">>> "
-                let program = (assemble.compile.parse) code
-                (result, machine'') <- runStateT (runMachine >> popS) (machine {machineCP = program})
-                print result
-                loop machine''
+                readline ">>> " >>= \x -> case x of
+                    Just line -> do
+                        addHistory line
+                        let program = (assemble.compile.parse) line
+                        (result, machine'') <- runStateT (runMachine >> popS) (machine {machineCP = program})
+                        print result
+                        loop machine''
+                    Nothing ->
+                        return ()
