@@ -1,4 +1,4 @@
-PROGS=Run LispC
+PROGS=Run LispC Repl
 
 all: ${PROGS}
 
@@ -10,3 +10,6 @@ LispC: LispC.hs Assemble.hs Compile.hs Vm.hs
 
 Run: Run.hs Assemble.hs Vm.hs
 	ghc --make -o Run Run.hs
+
+Repl: Repl.hs Assemble.hs Compile.hs Vm.hs
+	ghc --make -o Repl Repl.hs

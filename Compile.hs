@@ -4,22 +4,9 @@ import Control.Applicative
 import Data.List
 import Assemble
 import Vm
-import Control.Monad.State
-import System.Console.Readline
 
 data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SQuote SExpr
     deriving Show
-
-repl = do
-        core <- readFile "lib/core.s"
-        machine <- execStateT runMachine (newMachine (assemble core))
-        loop machine
-    where loop machine = do
-                Just code <- readline ">>> "
-                let program = (assemble.compile.parse) code
-                (result, machine'') <- runStateT (runMachine >> popS) (machine {machineCP = program})
-                print result
-                loop machine''
 
 lisp = run . compile . parse
 
