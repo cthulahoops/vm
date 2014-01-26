@@ -8,6 +8,8 @@ import Vm
 data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SQuote SExpr
     deriving Show
 
+type Tok = String
+
 lisp = run . compile . parse
 
 compile = concat . intersperse " " . optimise . concat . map compileTokens
@@ -27,9 +29,10 @@ transform x = x
 compileExpr (SInt x)       = [show x]
 compileExpr (SQuote expr)  = compileQuoted expr
 compileExpr (SExpr [SSymbol "define", SSymbol name, body]) = compileTokens body ++ [":" ++ name, "def", "nil"]
-compileExpr (SExpr (SSymbol "lambda":SExpr vars:body)) = ["&"] ++ block ( ["{}", "$"] ++ reverse [":" ++ x ++ " def" | SSymbol x <- vars] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
-compileExpr (SExpr [(SSymbol "if"), cond, true_branch, false_branch]) = block(compileTokens true_branch) ++ block(compileTokens false_branch) ++ compileTokens cond ++ ["if", "jmp"]
-compileExpr (SExpr (x:xs)) = ["&"] ++ concat (map compileTokens xs) ++ compileTokens x ++ ["`", "jmp", "flip", "$"]
+compileExpr (SExpr (SSymbol "lambda":SExpr vars:body)) = makeLambda vars body
+compileExpr (SExpr [SSymbol "if", cond, true_branch, false_branch]) = makeIf cond true_branch false_branch
+compileExpr (SExpr [SSymbol "apply", function, args]) = applyLambda function args
+compileExpr (SExpr (x:xs)) = applyLambda x (SExpr xs)
 compileExpr (SExpr [])     = [] 
 compileExpr (SSymbol x)    = [":" ++ x, "!"]
 
@@ -38,7 +41,13 @@ compileQuoted (SExpr (x:xs)) = compileQuoted (SExpr xs) ++ compileQuoted x ++ ["
 compileQuoted (SSymbol x)    = [":" ++ x]
 compileQuoted (SInt x)       = [show x]
 
+makeIf cond true_branch false_branch = block(compileTokens true_branch) ++ block(compileTokens false_branch) ++ compileTokens cond ++ ["if", "jmp"]
+makeLambda vars body = ["&"] ++ block (["{}", "$"] ++ reverse [":" ++ x ++ " def" | SSymbol x <- vars] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
+
 block instructions = ["["] ++ instructions ++ ["]"]
+
+applyLambda :: SExpr -> SExpr -> [Tok]
+applyLambda function (SExpr args) = ["&"] ++ concat (map compileTokens args) ++ compileTokens function ++ ["`", "jmp", "flip", "$"]
 
 optimise = id
 -- optimise (x:xs) = x:optimise xs
