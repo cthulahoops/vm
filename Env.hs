@@ -43,13 +43,3 @@ lookup ptr key m@(Memory next mem) = case M.lookup ptr mem of
                                                                         Just p' -> lookup p' key m
                                                                         Nothing -> Nothing
                                             Nothing -> Nothing
-
-test = do
-    let m = newMemory :: Memory Int String
-    print m
-    let (a, m') = newFrame Nothing m
-    print a
-    let (b, m'') = newFrame (Just a) m'
-    print b
-    let m''' = store a 2 "Hello" m''
-    return m'''
