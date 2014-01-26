@@ -33,7 +33,7 @@ compileExpr (SBool True)   = ["true"]
 compileExpr (SBool False)  = ["false"]
 compileExpr (SQuote expr)  = compileQuoted expr
 compileExpr (SExpr [SSymbol "define", SSymbol name, body]) = compileTokens body ++ [":" ++ name, "def", "nil"]
-compileExpr (SExpr (SSymbol "lambda":SExpr vars:body)) = makeLambda vars body
+compileExpr (SExpr (SSymbol "lambda":vars:body)) = makeLambda vars body
 compileExpr (SExpr [SSymbol "if", cond, true_branch, false_branch]) = makeIf cond true_branch false_branch
 compileExpr (SExpr [SSymbol "apply", function, args]) = applyLambda function args
 compileExpr (SExpr (x:xs)) = applyLambda x (SExpr xs)
@@ -47,7 +47,8 @@ compileQuoted (SInt x)       = [show x]
 
 makeIf cond true_branch false_branch = block(compileTokens true_branch) ++ block(compileTokens false_branch) ++ compileTokens cond ++ ["if", "jmp"]
 
-makeLambda vars body = ["&"] ++ block (["{}", "$"] ++ concat [["`", ":" ++ x, "def"] | SSymbol x <- vars] ++ ["drop"] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
+makeLambda (SExpr vars)  body = ["&"] ++ block (["{}", "$"] ++ concat [["`", ":" ++ x, "def"] | SSymbol x <- vars] ++ ["drop"] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
+makeLambda (SSymbol x) body = ["&"] ++ block (["{}", "$"] ++ [":" ++ x, "def"] ++ concat (intersperse ["drop"] (map compileTokens body))) ++ [","]
 
 block instructions = ["["] ++ instructions ++ ["]"]
 

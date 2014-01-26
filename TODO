@@ -4,7 +4,6 @@ TODO
 * Mutable Cons Cells
 * (letrec
 * (begin
-* (lambda x
 * (lambda (x . y)
 * (cond
 * Varargs for +, -, *, etc.
@@ -26,3 +25,4 @@ DONE
 * (let
 * (let*
 * Boolean literals
+* (lambda x
