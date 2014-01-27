@@ -7,7 +7,7 @@ import qualified Data.Map as M
 
 import Debug.Trace
 
-import Env
+import Memory
 
 data Stack a = Stack a (Stack a) | EmptyStack
     deriving Show
@@ -27,20 +27,25 @@ data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Jm
 data Val = I Integer | B Bool | S String | CP [Symbol] | C Val Val | P Ptr | Nil
     deriving (Show, Eq)
 
-type Table = M.Map String Val
-
 type Vm = StateT MachineState IO
-
-type VmEnv = Env String Val
+type Name = String
+type VmMemory = Memory Name Val
 
 data MachineState = MachineState {
         machineStackS :: (Stack Val),
         machineCP     :: [Symbol],
         machineStackR :: (Stack Val),
-        machineEnv    :: VmEnv
+        machineMemory :: VmMemory,
+        machineEnv    :: Ptr
     } deriving (Show)
 
-newMachine program = MachineState EmptyStack program EmptyStack newEnv
+newMachine program = MachineState {
+        machineStackS = EmptyStack,
+        machineStackR = EmptyStack,
+        machineCP     = program,
+        machineMemory = mem,
+        machineEnv    = ptr}
+    where (ptr, mem) = newFrame Nothing newMemory
 
 runProgram program = evalStateT (runMachine >> popS) (newMachine program)
 
@@ -48,14 +53,15 @@ takeInstruction :: Vm (Maybe Symbol)
 takeInstruction = do
     ms <- get
     case ms of 
-        MachineState s (i:instructions) r t -> do
-            put $ MachineState s instructions r t
+        MachineState {machineCP = (i:instructions)} -> do
+            put $ ms {machineCP = instructions}
             return $ Just i
-        MachineState s [] r t | isEmpty r -> return Nothing
-                              | otherwise -> do
-                                             let Just (CP instructions', r') = pop r
-                                             put $ MachineState s instructions' r' t
-                                             takeInstruction
+        MachineState {machineCP = []} -> handleReturn ms
+    where handleReturn ms@(MachineState {machineStackR = r}) | isEmpty r = return Nothing
+                                                             | otherwise = do
+                                                                         let Just (CP instructions', r') = pop r
+                                                                         put $ ms {machineCP = instructions', machineStackR = r'}
+                                                                         takeInstruction
                            
 
 loadInstructions :: [Symbol] -> Vm ()
@@ -128,12 +134,11 @@ execInstruction Jmp = do
 execInstruction Store = do
     S key <- popS
     value <- popS
-    modify (\m -> m {machineEnv = envStore key value (machineEnv m)})
+    envStore key value
 
 execInstruction Lookup = do
     S key <- popS
-    env <- gets machineEnv
-    case envLookup key env of
+    envLookup key >>= \x -> case x of
         Just value ->
             pushS value
         Nothing ->
@@ -156,22 +161,21 @@ execInstruction DeCons = do
     pushS $ x
 
 execInstruction SaveEnv = do
-    env <- gets machineEnv
-    pushS $ P $ envPtr env
+    ptr <- gets machineEnv
+    pushS $ P ptr
 
 execInstruction NewFrame = do
     parent <- popS
     let ptr = case parent of Nil   -> Nothing
                              P ptr -> Just ptr
     machine <- get
-    let env = machineEnv machine
-    let (newPtr, env') = envFrame ptr env
-    put $ machine {machineEnv = env'}
+    let (newPtr, mem') = newFrame ptr (machineMemory machine)
+    put $ machine {machineMemory = mem'}
     pushS $ (P newPtr)
 
 execInstruction LoadEnv = do
     P ptr <- popS
-    modify (\m -> m {machineEnv = envSwitch ptr (machineEnv m)})
+    modify (\m -> m {machineEnv = ptr})
 
 numOp f = do
     I x <- popS
@@ -202,3 +206,11 @@ popR = do
     let Just (x, r') = pop (machineStackR m)
     put $ m {machineStackR = r'}
     return x
+
+-- Environment Functions
+envStore key value = modify (\m -> m {machineMemory = store (machineEnv m) key value (machineMemory m)})
+
+envLookup :: Name -> Vm (Maybe Val)
+envLookup key = do
+    MachineState {machineMemory = mem, machineEnv = ptr} <- get
+    return $ Memory.lookup ptr key mem
