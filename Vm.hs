@@ -24,7 +24,7 @@ data Symbol = Value Val | Instruction Ins
 data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Jmp | Save | Rot | Drop | Store | Lookup | Cons | DeCons | SaveEnv | LoadEnv | NewFrame
     deriving (Show, Eq)
 
-data Val = I Integer | B Bool | S String | CP [Symbol] | C Val Val | P Ptr | Nil
+data Val = I Integer | B Bool | S String | CP [Symbol] | P Ptr | Nil
     deriving (Show, Eq)
 
 type Vm = StateT MachineState IO
@@ -153,10 +153,15 @@ execInstruction Drop = popS >> return ()
 execInstruction Cons = do
     x <- popS
     y <- popS
-    pushS $ C x y
+    machine <- get 
+    let (newPtr, mem') = newPair x y (machineMemory machine)
+    put $ machine {machineMemory=mem'}
+    pushS $ P newPtr
 
 execInstruction DeCons = do
-    C x y <- popS
+    P ptr <- popS
+    mem <- gets machineMemory
+    let Just (Pair x y) = deref ptr mem
     pushS $ y
     pushS $ x
 
@@ -171,7 +176,7 @@ execInstruction NewFrame = do
     machine <- get
     let (newPtr, mem') = newFrame ptr (machineMemory machine)
     put $ machine {machineMemory = mem'}
-    pushS $ (P newPtr)
+    pushS $ P newPtr
 
 execInstruction LoadEnv = do
     P ptr <- popS
