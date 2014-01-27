@@ -1,11 +1,13 @@
 TODO
 
 * Garbage Collection
-* Mutable Cons Cells
 * (letrec
 * (begin
 * (lambda (x . y)
 * (cond
+* (set!
+* (set-car!
+* (set-cdr! 
 * Varargs for +, -, *, etc.
 * (and & (or
 * Standard library.
@@ -19,6 +21,8 @@ TODO
 * IO
 * Compiler should produce VM ready code, replace mis-named Assemble.hs with disk serialisation/deserialisation.
 * Support comments in vmcode files, and add #!Run lines to output.
+* Comments
+* Formatting for display of objects (esp references).
 
 DONE
 
@@ -26,3 +30,4 @@ DONE
 * (let*
 * Boolean literals
 * (lambda x
+* Mutable Cons Cells
