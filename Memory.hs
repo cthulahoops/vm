@@ -1,8 +1,8 @@
 module Memory where
+
 import Prelude hiding (lookup)
 import qualified Data.Map as M
-
-type Ptr = Int
+import VmTypes
 
 data Cell k v = Pair v v | Frame (Maybe Ptr) (M.Map k v)
     deriving (Show)

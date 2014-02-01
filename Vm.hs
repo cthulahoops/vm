@@ -9,18 +9,10 @@ import Text.Printf
 
 import Debug.Trace
 
+import VmTypes
 import Memory
 import Stack
 import Marks
-
-data Symbol = Value Val | Instruction Ins 
-    deriving (Show, Eq)
-
-data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Jmp | Save | Rot | Drop | Store | Lookup | Cons | DeCons | SaveEnv | LoadEnv | NewFrame
-    deriving (Show, Eq)
-
-data Val = I Integer | B Bool | S String | CP [Symbol] | P Ptr | Nil
-    deriving (Show, Eq)
 
 type Vm = StateT MachineState IO
 type Name = String

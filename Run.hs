@@ -1,9 +1,10 @@
 import System.Environment
-import Assemble
+import VmCode
+import Vm
 
 main = do
     [fname] <- getArgs
     code <- readFile fname
-    result <- run code
-    print result
-
+    case (parseProgram code) of
+        Right parsed -> runProgram parsed >>= print
+        Left error   -> putStr "VmCode parse error: " >> print error

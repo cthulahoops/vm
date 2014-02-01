@@ -1,5 +1,5 @@
 PROGS=Run LispC Repl
-VMMODS=Assemble.hs Vm.hs Memory.hs Stack.hs Marks.hs
+VMMODS=Vm.hs Memory.hs Stack.hs Marks.hs VmCode.hs VmTypes.hs
 
 all: ${PROGS}
 

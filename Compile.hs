@@ -2,15 +2,12 @@ module Compile where
 
 import Control.Applicative
 import Data.List
-import Assemble
-import Vm
+import VmTypes
 
 data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SBool Bool | SQuote SExpr
     deriving Show
 
 type Tok = String
-
-lisp = run . compile . parse
 
 compile = concat . intersperse " " . optimise . concat . map compileTokens
 
