@@ -1,6 +1,5 @@
 TODO
 
-* Garbage Collection
 * (letrec
 * (begin
 * (lambda (x . y)
@@ -31,3 +30,4 @@ DONE
 * Boolean literals
 * (lambda x
 * Mutable Cons Cells
+* Garbage Collection

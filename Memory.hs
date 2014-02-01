@@ -35,3 +35,10 @@ lookup ptr key m@(Memory next mem) = case M.lookup ptr mem of
                                                  Nothing    -> case parent of
                                                         Just p' -> lookup p' key m
                                                         Nothing -> Nothing
+elems = M.elems
+
+sweep :: [Ptr] -> Memory k a -> Memory k a
+sweep ptrs (Memory next map) = Memory next (M.filterWithKey isLive map)
+    where isLive k _ = k `elem` ptrs
+
+memSize (Memory next map) = M.size map

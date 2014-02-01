@@ -1,22 +1,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Vm where
 
+import Data.Maybe
 import Data.List
 import Control.Monad.State
 import qualified Data.Map as M
+import Text.Printf
 
 import Debug.Trace
 
 import Memory
-
-data Stack a = Stack a (Stack a) | EmptyStack
-    deriving Show
-
-push x stack = Stack x stack
-pop (Stack x stack) = Just (x, stack)
-pop EmptyStack      = Nothing
-isEmpty EmptyStack  = True
-isEmpty (Stack _ _) = False
+import Stack
+import Marks
 
 data Symbol = Value Val | Instruction Ins 
     deriving (Show, Eq)
@@ -61,6 +56,7 @@ takeInstruction = do
                                                              | otherwise = do
                                                                          let Just (CP instructions', r') = pop r
                                                                          put $ ms {machineCP = instructions', machineStackR = r'}
+                                                                         gc
                                                                          takeInstruction
                            
 
@@ -72,10 +68,11 @@ loadInstructions cp = modify (\m -> m {
 
 runMachine :: Vm ()
 runMachine = do
+--            stack <- (gets machineStackS)
     next <- takeInstruction
     case next of
         Just i  -> do
---            liftIO $ print i 
+--            liftIO $ putStr "Instruction: " >> print i 
             apply i
 --            stack <- (gets machineStackS)
 --            code  <- (gets machineCP)
@@ -211,6 +208,22 @@ popR = do
     let Just (x, r') = pop (machineStackR m)
     put $ m {machineStackR = r'}
     return x
+
+-- Garbage
+gc :: Vm ()
+gc = modify (\machine -> machine {machineMemory = sweep (marks machine) (machineMemory machine)})
+     where marks m     = mark (getTargets (machineMemory m)) (stackPtrs m)
+           stackPtrs m = machineEnv m : getPtrs (toList (machineStackR m) ++ toList (machineStackS m))
+
+getTargets :: Memory Name Val -> Ptr -> [Ptr]
+getTargets mem ptr = values $ fromJust $ deref ptr mem
+
+values (Pair v1 v2)       = getPtrs [v1, v2] 
+values (Frame parent map) = maybeToList parent ++ getPtrs (elems map)
+
+getPtrs = concatMap getPtr :: [Val] -> [Ptr]
+getPtr (P p) = [p]
+getPtr _     = []
 
 -- Environment Functions
 envStore key value = modify (\m -> m {machineMemory = store (machineEnv m) key value (machineMemory m)})
