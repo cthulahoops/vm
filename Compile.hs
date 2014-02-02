@@ -4,8 +4,7 @@ import Control.Applicative
 import Data.List
 import VmTypes
 
-data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SBool Bool | SQuote SExpr
-    deriving Show
+import SExprs
 
 type Tok = String
 
@@ -28,7 +27,8 @@ transform x = x
 compileExpr (SInt x)       = [show x]
 compileExpr (SBool True)   = ["true"]
 compileExpr (SBool False)  = ["false"]
-compileExpr (SQuote expr)  = compileQuoted expr
+compileExpr (SString str)  = [show str]
+compileExpr (SExpr [SSymbol "quote", expr])  = compileQuoted expr
 compileExpr (SExpr [SSymbol "define", SSymbol name, body]) = compileTokens body ++ [":" ++ name, "def", "nil"]
 compileExpr (SExpr (SSymbol "lambda":vars:body)) = makeLambda vars body
 compileExpr (SExpr [SSymbol "if", cond, true_branch, false_branch]) = makeIf cond true_branch false_branch
@@ -54,41 +54,3 @@ applyLambda function (SExpr args) = ["&"] ++ compiledArgs ++ compileTokens funct
     where compiledArgs = ["nil"] ++ concat (map (\x -> compileTokens x ++ [","]) (reverse args))
 
 optimise = id
--- optimise (x:xs) = x:optimise xs
--- optimise [] = []
-
--- Parser - probably separate.
-parse = fst . parse' . splitTokens
-
-parse' :: [String] -> ([SExpr], [String])
-parse' []       = ([], [])
-parse' ("'":xs) = (SQuote y:ys, rest)
-    where ((y:ys), rest) = parse' xs
-parse' ("(":xs) = (SExpr this:that, rest')
-    where (this, rest)  = parse' xs
-          (that, rest') = parse' rest
-parse' (")":xs) = ([], xs)
-parse' (x:xs) = (parseSymbol x:that, rest)
-    where (that, rest) = parse' xs          
-
-parseSymbol "#t" = SBool True
-parseSymbol "#f" = SBool False
-parseSymbol x | isNumber x = SInt (read x)
-              | otherwise       = SSymbol x
-
-isNumber = all isDigit
-isDigit  x = x >= '0' && x <= '9'
-isSymbol x = x >= '*' && x <= '?' || x >= '^' && x <= 'z'
-
-splitTokens :: String -> [String]
-splitTokens "" = []
-splitTokens ('\'':xs) = "'" : splitTokens xs
-splitTokens ('(':xs) = "(" : splitTokens xs
-splitTokens (')':xs) = ")" : splitTokens xs
-splitTokens ('#':'t':xs) = "#t" : splitTokens xs
-splitTokens ('#':'f':xs) = "#f" : splitTokens xs
-splitTokens (' ':xs) = splitTokens xs
-splitTokens ('\n':xs) = splitTokens xs
-splitTokens ('\t':xs) = splitTokens xs
-splitTokens (x:xs) | isSymbol x = let (token, tail) = break (not.isSymbol) xs in (x:token) : splitTokens tail
-

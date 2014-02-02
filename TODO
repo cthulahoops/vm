@@ -11,7 +11,6 @@ TODO
 * (and & (or
 * Standard library.
 * Smarter parser (unmatched (
-* Strings
 * Non-integers
 * call/cc
 * Test system.
@@ -19,8 +18,8 @@ TODO
 * Macros
 * IO
 * Compiler should produce VM ready code, replace mis-named Assemble.hs with disk serialisation/deserialisation.
-* Support comments in vmcode files, and add #!Run lines to output.
-* Comments
+* Add #!Run lines to compiler output.
+* Scheme Comments
 * Formatting for display of objects (esp references).
 
 DONE
@@ -31,3 +30,5 @@ DONE
 * (lambda x
 * Mutable Cons Cells
 * Garbage Collection
+* Support comments in vmcode files
+* Strings

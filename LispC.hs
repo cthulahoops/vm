@@ -1,3 +1,4 @@
+import Parse
 import Compile
 import System.Environment
 
@@ -9,3 +10,5 @@ main = do
     putStrLn core
     putStrLn $ (compile.parse) stdlib
     putStrLn $ (compile.parse) code
+
+parse x = let Right p = parseExprs x in p

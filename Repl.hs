@@ -5,6 +5,7 @@ import Vm
 import VmTypes
 import VmCode
 import Compile
+import Parse
 
 main = do
         core   <- readFile "lib/core.s"
@@ -22,3 +23,5 @@ main = do
                         loop machine''
                     Nothing ->
                         return ()
+
+parse x = let Right p = parseExprs x in p
