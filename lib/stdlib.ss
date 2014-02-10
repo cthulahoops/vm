@@ -2,4 +2,27 @@
 (define not  (lambda (x) (if x #f #t)))
 (define map  (lambda (f xs) (if (null? xs) '() (cons (f (car xs)) (map f (cdr xs))))))
 
+(define eqv? =)
+
+(define (pair? x) (eqv? 'pair (vm? x)))
+(define (number? x) (eqv? 'number (vm? x)))
+(define (symbol? x) (eqv? 'symbol (vm? x)))
+(define (string? x) (eqv? 'string (vm? x)))
+
 (define (length lst) (if (null? lst) 0 (+ 1 (length (cdr lst)))))
+
+(define (foldl f a xs) (if (null? xs) a (foldl f (f a (car xs)) (cdr xs))))
+
+(define + (lambda xs (foldl vm+ 0 xs)))
+(define * (lambda xs (foldl vm* 1 xs)))
+(define string-append (lambda xs (foldl vm+ "" xs)))
+
+(define (value->string x)
+  (cond [(pair? x) (string-append "(" (value->string (car x)) (tail->string (cdr x)))]
+	  [(null? x) "()"]
+	  [else (str x)]))
+
+(define (tail->string x)
+  (cond [(pair? x) (string-append " " (value->string (car x)) (tail->string (cdr x)))]
+	  [(null? x) ")"]
+	  [else (string-append " . " (str x) ")")]))
