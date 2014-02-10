@@ -62,4 +62,6 @@ instructionMap = [("+", Add),
                ("`", DeCons),
                ("&", SaveEnv),
                ("{}", NewFrame),
-               ("$", LoadEnv)]
+               ("$", LoadEnv),
+               ("show", Show),
+               ("?", Type)]

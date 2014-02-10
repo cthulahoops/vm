@@ -78,7 +78,14 @@ runMachine = do
 apply (Value x)       = pushS x
 apply (Instruction i) = execInstruction i
 
-execInstruction Add  = numOp (+)
+execInstruction Add  = do
+    y <- popS
+    x <- popS
+    case (x, y) of
+        (I x, I y)     -> pushS $ I (x + y)
+        (Str x, Str y) -> pushS $ Str (x ++ y)
+        _              -> fail $ "Can't add " ++ show x ++ " & " ++ show y
+
 execInstruction Mul  = numOp (*)
 execInstruction Sub  = numOp (-)
 execInstruction Gt   = boolOp (>)
@@ -110,6 +117,27 @@ execInstruction Rot = do
     pushS z
     pushS y
     
+execInstruction Type = do
+    var <- popS
+    pushS $ case var of
+        I _ -> S "number"
+        B _ -> S "boolean"
+        S _ -> S "symbol"
+        Str _ -> S "string"
+        Nil -> S "nil"
+        P _ -> S "pair"
+
+execInstruction Show = do
+    var <- popS
+    pushS $ case var of
+        I x   -> Str (show x)
+        Str x -> Str (show x)
+        S x   -> Str x
+        B True  -> Str "#t"
+        B False -> Str "#f"
+        Nil   -> Str "()"
+        P x   -> Str ("<" ++ (show x) ++ ">")
+        
 execInstruction If = do
     B  c <- popS
     _else <- popS
