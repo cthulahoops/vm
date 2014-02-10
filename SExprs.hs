@@ -1,4 +1,4 @@
 module SExprs where
 
-data SExpr = SExpr [SExpr] | SSymbol String | SInt Integer | SBool Bool | SString String
-    deriving Show
+data SExpr = SList [SExpr] | SSymbol String | SInt Integer | SBool Bool | SString String
+    deriving (Eq)

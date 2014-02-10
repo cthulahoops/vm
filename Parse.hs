@@ -8,18 +8,18 @@ import Text.Parsec.Numbers
 import SExprs
 
 parseExprs :: String -> Either ParseError [SExpr]
-parseExprs = parse sexprList "(unknown!)"
+parseExprs = parse (sexprList <* eof) "(unknown!)"
 
 sexpr = parens <|> (try int) <|> bool <|> symbol <|> stringLit <|> quote
 
-sexprList = endBy sexpr (many space)
+sexprList = many space >> endBy sexpr (many space)
 
 quote = do
     char '\''
     quoted <- sexpr
-    return $ SExpr [SSymbol "quote", quoted] 
+    return $ SList [SSymbol "quote", quoted] 
 
-parens = SExpr <$> ((char '(' *> sexprList  <* char ')') <|> (char '[' *> sexprList  <* char ']'))
+parens = SList <$> ((char '(' *> sexprList  <* char ')') <|> (char '[' *> sexprList  <* char ']'))
 
 symbol = many1 (noneOf reserved) >>= return . SSymbol
 int = do
