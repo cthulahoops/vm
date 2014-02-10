@@ -9,6 +9,7 @@ main = do
     core   <- readFile "lib/core.s"
     putStrLn core
     putStrLn $ (compile.parse) stdlib
+    putStrLn ""
     putStrLn $ (compile.parse) code
 
 parse x = let Right p = parseExprs x in p
