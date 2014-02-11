@@ -3,6 +3,6 @@
 Run
 LispC
 Repl
-.*.swp
+.*.sw*
 *~
 *.s
