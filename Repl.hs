@@ -8,9 +8,8 @@ import Compile
 import Parse
 
 main = do
-        core   <- readFile "lib/core.s"
         stdlib <- compile.parse <$> readFile "lib/stdlib.ss"
-        let Right program = parseProgram (core ++ stdlib)
+        let Right program = parseProgram stdlib
         machine <- execStateT runMachine (newMachine program)
         loop machine
     where loop machine = do

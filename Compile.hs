@@ -44,6 +44,7 @@ compileExpr (SList [SSymbol "quote", expr])  = compileQuoted expr
 compileExpr (SList [SSymbol "define", SSymbol name, body]) = compileExpr body ++ [":" ++ name, "def", "nil"]
 compileExpr (SList (SSymbol "lambda":vars:body)) = makeLambda vars body
 compileExpr (SList [SSymbol "if", cond, true_branch, false_branch]) = makeIf cond true_branch false_branch
+compileExpr (SList (SSymbol "$vm-op":SInt arity:instructions)) = ["nil"] ++ block (["drop"] ++ concat (replicate (fromIntegral arity) ["`", "flip"]) ++ ["drop"] ++ [x | SSymbol x <- instructions]) ++ [","]
 compileExpr (SList [SSymbol "apply", function, args]) = applyLambda (compileExpr function) (compileExpr args)
 compileExpr (SList (x:xs)) = applyLambda (compileExpr x) (compileArgs xs)
 compileExpr (SList [])     = [] 
