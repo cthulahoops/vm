@@ -3,13 +3,11 @@ module SExprs where
 import Data.List
 
 data SExpr = SList [SExpr] | SSymbol String | SInt Integer | SBool Bool | SString String
-    deriving (Eq)
+    deriving (Eq, Show)
 
-instance Show SExpr where
-    show (SList xs) = "(" ++ concat (intersperse " " (map show xs)) ++ ")"
-    show (SSymbol x) = x
-    show (SInt x) = show x
-    show (SBool True) = "#t"
-    show (SBool False) = "#f"
-    show (SString x) = show x
-    
+display (SList xs) = "(" ++ concat (intersperse " " (map display xs)) ++ ")"
+display (SSymbol x) = x
+display (SInt x) = show x
+display (SBool True) = "#t"
+display (SBool False) = "#f"
+display (SString x) = show x
