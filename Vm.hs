@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Vm where
 
+import System.IO
+
 import Data.Maybe
 import Data.List
 import Control.Monad.State
@@ -198,6 +200,31 @@ execInstruction NewFrame = do
 execInstruction LoadEnv = do
     P ptr <- popS
     modify (\m -> m {machineEnv = ptr})
+
+execInstruction GetPort = exec1 getPort
+    where getPort (S "stdin")  = H stdin
+          getPort (S "stdout") = H stdout
+          getPort (S "stderr") = H stderr
+
+execInstruction Write = do
+    Str text <- popS
+    H handle <- popS
+    liftIO $ hPutStr handle text
+    pushS $ Nil
+
+execInstruction Read = do
+    H handle <- popS
+    line <- liftIO $ hGetLine handle
+    pushS $ Str line
+
+exec1 f = do
+    arg <- popS 
+    pushS $ f arg
+
+exec2 f = do
+    x <- popS
+    y <- popS
+    pushS $ f y x
 
 numOp f = do
     I x <- popS

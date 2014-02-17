@@ -1,12 +1,14 @@
 module VmTypes where
 
+import System.IO
+
 data Symbol = Value Val | Instruction Ins 
     deriving (Show, Eq)
 
-data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Jmp | Save | Rot | Drop | Store | Lookup | Cons | DeCons | SaveEnv | LoadEnv | NewFrame | Type | Show
+data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not | If | Jmp | Save | Rot | Drop | Store | Lookup | Cons | DeCons | SaveEnv | LoadEnv | NewFrame | Type | Show | GetPort | Write | Read
     deriving (Show, Eq)
 
-data Val = I Integer | B Bool | S String | Str String | CP [Symbol] | P Ptr | Nil
+data Val = I Integer | B Bool | S String | Str String | CP [Symbol] | P Ptr | H Handle | Nil 
     deriving (Show, Eq)
 
 type Ptr = Int

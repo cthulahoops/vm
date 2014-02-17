@@ -13,6 +13,17 @@
 (define >=  ($vm-op 2 >=))
 (define =   ($vm-op 2 =))
 
+(define $vm-port ($vm-op 1 port))
+(define (current-output-port) ($vm-port 'stdout))
+(define (current-input-port) ($vm-port 'stdin))
+(define (current-error-port) ($vm-port 'stderr))
+
+(define $vm-write ($vm-op 2 w))
+(define (newline) ($vm-write (current-output-port) "\n"))
+(define (write x) ($vm-write (current-output-port) (value->string x)))
+
+(define $vm-read ($vm-op 1 r))
+
 (define list (lambda x x))
 (define not  (lambda (x) (if x #f #t)))
 (define map  (lambda (f xs) (if (null? xs) '() (cons (f (car xs)) (map f (cdr xs))))))

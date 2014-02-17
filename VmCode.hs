@@ -25,9 +25,16 @@ number = parseIntegral >>= return . I
 symbol = char ':' >> many (noneOf " \t\n") >>= return . S 
 stringLit = do
     char '"'
-    str <- many ((noneOf "\"\\") <|> (char '\\' >> anyChar))
+    str <- many ((noneOf "\"\\") <|> (char '\\' >> escapedChar))
     char '"'
     return $ Str str
+
+escapedChar = do
+    x <- anyChar
+    return $ case x of
+        'n'  -> '\n'
+        't'  -> '\t'
+        _    -> x
 
 block = do
     char '['
@@ -64,4 +71,7 @@ instructionMap = [("+", Add),
                ("{}", NewFrame),
                ("$", LoadEnv),
                ("show", Show),
-               ("?", Type)]
+               ("?", Type),
+               ("port", GetPort),
+               ("w", Write),
+               ("r", Read)]
