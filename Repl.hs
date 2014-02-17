@@ -8,19 +8,29 @@ import Compile
 import Parse
 
 main = do
-        stdlib <- compile.parse <$> readFile "lib/stdlib.ss"
-        let Right program = parseProgram stdlib
-        machine <- execStateT runMachine (newMachine program)
-        loop machine
+        stdlib <- readFile "lib/stdlib.ss"
+        case parseCompile stdlib of
+            Right program -> do
+                machine <- execStateT runMachine (newMachine program)
+                loop machine
+            Left error ->
+                print error
     where loop machine = do
-                readline ">>> " >>= \x -> case x of
-                    Just line -> do
-                        addHistory line
-                        let Right program = (parseProgram.compile.parse) line
-                        (result, machine'') <- runStateT (runMachine >> popS) (machine {machineCP = program})
+                x <- readline ">>> "
+                case x of 
+                    Just line -> eval machine line >>= loop
+                    Nothing   -> return ()
+          eval machine line =
+                case parseCompile line of
+                    Right program -> do
+                        (result, machine') <- runStateT (runMachine >> popS) (machine {machineCP = program})
                         print result
-                        loop machine''
-                    Nothing ->
-                        return ()
+                        return machine'
+                    Left error -> do
+                        print error
+                        return machine
 
-parse x = let Right p = parseExprs x in p
+parseCompile code = do
+    p <- parseExprs code
+    let mc = compile p
+    parseProgram mc
