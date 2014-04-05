@@ -6,7 +6,6 @@ import System.IO
 import Data.Maybe
 import Data.List
 import Control.Monad.State
-import qualified Data.Map as M
 import Text.Printf
 
 import Debug.Trace
