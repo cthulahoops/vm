@@ -1,6 +1,6 @@
 module VmCode (parseProgram) where
 
-import Control.Applicative ((<*), (*>))
+import Control.Applicative ((<*), (*>), (<$>))
 import Text.ParserCombinators.Parsec hiding (State)
 import Text.Parsec.Numbers
 
@@ -13,15 +13,14 @@ program = (many (space <|> comment) *> termList <* eof)
 
 termList = endBy term (many (space <|> comment))
 
-term  = try instruction <|> try value
+term  = try value <|> try instruction
 
-value = do
-    val <- number <|> symbol <|> stringLit <|> block <|> bool <|> nil
-    return $ Value val
+value = Value <$> (number <|> symbol <|> stringLit <|> block <|> bool <|> nil)
 
 instruction = choice [try (string k >> return (Instruction v)) | (k, v) <- instructionMap]
 
 number = parseIntegral >>= return . I
+
 symbol = char ':' >> many (noneOf " \t\n") >>= return . S 
 stringLit = do
     char '"'
