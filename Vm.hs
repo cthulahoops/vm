@@ -190,11 +190,14 @@ execInstruction Cons = do
     pushS $ P newPtr
 
 execInstruction DeCons = do
-    P ptr <- popS
-    mem <- gets machineMemory
-    let Just (Pair x y) = deref ptr mem
-    pushS $ y
-    pushS $ x
+    v <- popS
+    case v of
+        P ptr -> do
+            mem <- gets machineMemory
+            let Just (Pair x y) = deref ptr mem
+            pushS $ y
+            pushS $ x
+        _ -> fail $ "Can't DeCons: " ++ show v
 
 execInstruction SaveEnv = do
     ptr <- gets machineEnv
