@@ -5,6 +5,8 @@ import System.IO
 
 import Data.Maybe
 import Data.List
+import Control.Applicative
+import Control.Monad.Error
 import Control.Monad.State
 import Text.Printf
 
@@ -15,7 +17,7 @@ import Memory
 import Stack
 import Marks
 
-type Vm = StateT MachineState IO
+type Vm = StateT MachineState (ErrorT String IO)
 type Name = String
 type VmMemory = Memory Name Val
 
@@ -35,7 +37,21 @@ newMachine program = MachineState {
         machineEnv    = ptr}
     where (ptr, mem) = newFrame Nothing newMemory
 
-runProgram program = evalStateT (runMachine >> popS) (newMachine program)
+
+evalVm machine = fst <$> runVm machine
+execVm machine = snd <$> runVm machine
+
+runVm machine = do
+    result <- runErrorT $ runStateT (runMachine >> popS) machine
+    case result of
+        Right r ->
+            return r
+        Left error -> do
+            liftIO $ do putStrLn "*** ERROR ***"
+                        putStrLn error
+            return (Nil, machine)
+
+runProgram program = evalVm (newMachine program)
 
 takeInstruction :: Vm (Maybe Symbol)
 takeInstruction = do

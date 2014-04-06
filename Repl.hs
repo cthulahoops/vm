@@ -12,7 +12,7 @@ main = do
         stdlib <- readFile "lib/stdlib.ss"
         case parseCompile stdlib of
             Right program -> do
-                machine <- execStateT runMachine (newMachine program)
+                machine <- execVm (newMachine program)
                 loop machine
             Left error ->
                 print error
@@ -24,7 +24,7 @@ main = do
           eval machine line =
                 case parseCompile line of
                     Right program -> do
-                        (result, machine') <- runStateT (runMachine >> popS) (machine {machineCP = program})
+                        (result, machine') <- runVm (machine {machineCP = program})
                         print result
                         return machine'
                     Left error -> do
