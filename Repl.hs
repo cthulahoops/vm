@@ -1,6 +1,7 @@
 import Control.Applicative
 import Control.Monad.State
 import System.Console.Readline
+import SExprs
 import Vm
 import VmTypes
 import VmCode
