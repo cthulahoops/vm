@@ -8,7 +8,7 @@ import SExprs
 
 type Tok = String
 
-compile = concat . intersperse " " . optimise . concat . map compileTokens
+compile = concat . optimise . concat . intersperse ["\n"] . map (intersperse " ") . map compileTokens
 
 compileTokens = compileExpr . transform
 
