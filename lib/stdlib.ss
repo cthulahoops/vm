@@ -1,4 +1,3 @@
-(define null? ($vm-op 1 nil =))
 (define vm?  ($vm-op 1 ?))
 (define str  ($vm-op 1 show))
 (define car  ($vm-op 1 ` flip drop))
@@ -12,6 +11,8 @@
 (define <=  ($vm-op 2 <=))
 (define >=  ($vm-op 2 >=))
 (define =   ($vm-op 2 =))
+
+(define (null? x) (= '() x))
 
 (define $vm-port ($vm-op 1 port))
 (define (current-output-port) ($vm-port 'stdout))
