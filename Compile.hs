@@ -27,7 +27,7 @@ transform' (SSymbol "cond") expr = condToIf expr
 transform' (SSymbol "let")  expr = letToLambda expr
 transform' (SSymbol "let*") expr = letStarToLet expr
 transform' (SSymbol "define") (SCons (SCons (SSymbol name) vars) body) = 
-    fromList $ [SSymbol "define", SSymbol name, makeLambda (toList vars) body]
+    fromList $ [SSymbol "define", SSymbol name, makeLambda vars body]
 -- transform' (SSymbol "define":SList (SSymbol name:vars): body)
 --     | all (\(SSymbol s) -> True) vars = SList $ [SSymbol "define", SSymbol name, SList ((SSymbol "lambda":SList vars:body))]
 transform' car cdr = SCons car cdr
@@ -37,14 +37,14 @@ condToIf (SCons (SCons (SSymbol "else") (SCons body SNil)) SNil)  = body
 condToIf (SCons (SCons cond (SCons body SNil)) more) = makeIf cond body (condToIf more)
      where makeIf cond_ then_ else_ = fromList $ [SSymbol "if", cond_, then_, else_]
 
-letToLambda (SCons bindings body) = fromList $ (makeLambda vars body):values
+letToLambda (SCons bindings body) = fromList $ (makeLambda (fromList vars) body):values
      where (vars, values) = unzip $ mapToList toPair bindings
            toPair (SCons (SSymbol x) (SCons expr SNil)) = (SSymbol x, expr)
 
 letStarToLet (SCons SNil body) = (SCons (SSymbol "begin") body)
 letStarToLet (SCons (SCons binding bindings) body) = fromList [SSymbol "let", fromList [binding], fromList (SSymbol "let*":bindings:toList body)]
 
-makeLambda vars body = fromList $ (SSymbol "lambda":fromList vars:toList body)
+makeLambda vars body = fromList $ (SSymbol "lambda":vars:toList body)
 
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
@@ -74,9 +74,10 @@ compileQuoted (SString x)    = [show x]
 compileIf cond true_branch false_branch = block(compileExpr true_branch) ++ block(compileExpr false_branch) ++ compileExpr cond ++ ["if", "jmp"]
 
 compileLambda :: SExpr -> SExpr -> [Tok]
-compileLambda (SSymbol x) body = ["&"] ++ block (["{}", "$"] ++ [vmSymbol x, "def"] ++ concat (intersperse ["drop"] (mapToList compileExpr body))) ++ [","]
-compileLambda vars body = ["&"] ++ block (["{}", "$"] ++ concat (mapToList defineVar vars) ++ ["drop"] ++ concat (intersperse ["drop"] (mapToList compileExpr body))) ++ [","]
-    where defineVar (SSymbol x) = ["`", vmSymbol x, "def"]
+compileLambda params body = ["&"] ++ block (["{}", "$"] ++ compileParams params ++ concat (intersperse ["drop"] (mapToList compileExpr body))) ++ [","]
+    where compileParams SNil                     = ["drop"]
+          compileParams (SSymbol x)              = [vmSymbol x, "def"]
+          compileParams (SCons (SSymbol x) rest) = ["`", vmSymbol x, "def"] ++ compileParams rest
 
 block instructions = ["["] ++ instructions ++ ["]"]
 
