@@ -56,8 +56,7 @@ compileExpr (SCons (SSymbol "define") (SCons (SSymbol name) (SCons body SNil)))
 compileExpr (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda vars body
 compileExpr (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
                            = compileIf cond true_branch false_branch
-compileExpr (SCons (SSymbol "$vm-op") (SCons (SInt arity) instructions)) = [Value Nil] ++ block ([Drop] ++ concat (replicate (fromIntegral arity) [DeCons, Flip]) ++ [Drop] ++ mapToList getSymbol instructions) ++ [Cons]
-         where getSymbol (SSymbol x) = readInstruction x
+compileExpr (SCons (SSymbol "$vm-op") (SCons (SInt arity) ins)) = compileVmOp arity ins
 compileExpr (SCons (SSymbol "begin") exprs) = concat $ intersperse [Drop] $ mapToList compileExpr exprs
 compileExpr (SCons (SSymbol "apply") (SCons function (SCons args SNil))) = applyLambda (compileExpr function) (compileExpr args)
 compileExpr (SCons f args)   = applyLambda (compileExpr f) (compileArgs args)
@@ -69,13 +68,23 @@ compileQuoted (SSymbol x)    = [vmSymbol x]
 compileQuoted (SInt x)       = [Value $ I x]
 compileQuoted (SString x)    = [Value $ Str x]
 
-compileIf cond true_branch false_branch = block(compileExpr true_branch) ++ block(compileExpr false_branch) ++ compileExpr cond ++ [If, Jmp]
+compileIf cond true_branch false_branch = block(compileExpr true_branch)
+                                       ++ block(compileExpr false_branch)
+                                       ++ compileExpr cond
+                                       ++ [If, Jmp]
 
 compileLambda :: SExpr -> SExpr -> [Symbol]
 compileLambda params body = [SaveEnv] ++ block ([NewFrame, LoadEnv] ++ compileParams params ++ concat (intersperse [Drop] (mapToList compileExpr body))) ++ [Cons]
     where compileParams SNil                     = [Drop]
           compileParams (SSymbol x)              = [vmSymbol x, Store]
           compileParams (SCons (SSymbol x) rest) = [DeCons, vmSymbol x, Store] ++ compileParams rest
+
+compileVmOp arity ins = [Value Nil] ++ block functionBody ++ [Cons]
+         where functionBody = [Drop]
+                           ++ concat (replicate (fromIntegral arity) [DeCons, Flip])
+                           ++ [Drop]
+                           ++ mapToList getSymbol ins
+               getSymbol (SSymbol x) = readInstruction x
 
 block instructions = [Value (CP instructions)]
 
