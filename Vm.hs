@@ -210,8 +210,10 @@ execInstruction NewFrame = do
     pushS $ P newPtr
 
 execInstruction LoadEnv = do
-    P ptr <- popS
-    modify (\m -> m {machineEnv = ptr})
+    env <- popS
+    case env of
+        P ptr -> modify (\m -> m {machineEnv = ptr})
+        other -> fail $ "VM Error: failed to restore environment: " ++ show env
 
 execInstruction GetPort = exec1 getPort
     where getPort (S "stdin")  = H stdin
