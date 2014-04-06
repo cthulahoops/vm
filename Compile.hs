@@ -54,7 +54,7 @@ compileExpr (SBool False)  = ["false"]
 compileExpr (SString str)  = [show str]
 compileExpr (SCons (SSymbol "quote") expr)  = compileQuoted expr
 compileExpr (SCons (SSymbol "define") (SCons (SSymbol name) (SCons body SNil)))
-                           = compileExpr body ++ [":" ++ name, "def", "nil"]
+                           = compileExpr body ++ [vmSymbol name, "def", "nil"]
 compileExpr (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda vars body
 compileExpr (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
                            = compileIf cond true_branch false_branch
@@ -63,20 +63,20 @@ compileExpr (SCons (SSymbol "$vm-op") (SCons (SInt arity) instructions)) = ["nil
 compileExpr (SCons (SSymbol "begin") exprs) = concat $ intersperse ["drop"] $ mapToList compileExpr exprs
 compileExpr (SCons (SSymbol "apply") (SCons function (SCons args SNil))) = applyLambda (compileExpr function) (compileExpr args)
 compileExpr (SCons f args)   = applyLambda (compileExpr f) (compileArgs args)
-compileExpr (SSymbol x)    = [":" ++ x, "!"]
+compileExpr (SSymbol x)    = [vmSymbol x, "!"]
 
 compileQuoted SNil     = ["nil"]
 compileQuoted (SCons car cdr) = compileQuoted cdr ++ compileQuoted car ++ [","]
-compileQuoted (SSymbol x)    = [":" ++ x]
+compileQuoted (SSymbol x)    = [vmSymbol x]
 compileQuoted (SInt x)       = [show x]
 compileQuoted (SString x)    = [show x]
 
 compileIf cond true_branch false_branch = block(compileExpr true_branch) ++ block(compileExpr false_branch) ++ compileExpr cond ++ ["if", "jmp"]
 
 compileLambda :: SExpr -> SExpr -> [Tok]
-compileLambda (SSymbol x) body = ["&"] ++ block (["{}", "$"] ++ [":" ++ x, "def"] ++ concat (intersperse ["drop"] (mapToList compileExpr body))) ++ [","]
+compileLambda (SSymbol x) body = ["&"] ++ block (["{}", "$"] ++ [vmSymbol x, "def"] ++ concat (intersperse ["drop"] (mapToList compileExpr body))) ++ [","]
 compileLambda vars body = ["&"] ++ block (["{}", "$"] ++ concat (mapToList defineVar vars) ++ ["drop"] ++ concat (intersperse ["drop"] (mapToList compileExpr body))) ++ [","]
-    where defineVar (SSymbol x) = ["`", ":" ++ x, "def"]
+    where defineVar (SSymbol x) = ["`", vmSymbol x, "def"]
 
 block instructions = ["["] ++ instructions ++ ["]"]
 
@@ -84,5 +84,7 @@ compileArgs args = ["nil"] ++ concat (reverse (mapToList (\x -> compileExpr x ++
 
 applyLambda :: [Tok] -> [Tok] -> [Tok]
 applyLambda function args = ["&"] ++ args ++ function ++ ["`", "jmp", "flip", "$"]
+
+vmSymbol x = ":" ++ x
 
 optimise = id
