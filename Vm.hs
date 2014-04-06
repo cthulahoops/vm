@@ -95,25 +95,22 @@ runMachine = do
 apply (Value x)       = pushS x
 apply (Instruction i) = execInstruction i
 
-execInstruction Add  = do
-    y <- popS
-    x <- popS
-    case (x, y) of
-        (I x, I y)     -> pushS $ I (x + y)
-        (Str x, Str y) -> pushS $ Str (x ++ y)
-        _              -> fail $ "Can't add " ++ show x ++ " & " ++ show y
+execInstruction Add   = applyOp (Operator f "+")
+    where f (I x) (I y)     = Just $ I (x + y)
+          f (Str x) (Str y) = Just $ Str (x ++ y)
+          f _ _             = Nothing
 
-execInstruction Mul  = numOp (*)
-execInstruction Sub  = numOp (-)
-execInstruction Gt   = boolOp (>)
-execInstruction Lt   = boolOp (<)
-execInstruction Eq   = do
-    x <- popS
-    y <- popS
-    pushS $ B $ x == y
+execInstruction Mul  = applyOp (makeNumOp  (*) "*")
+execInstruction Sub  = applyOp (makeNumOp  (-) "-")
 
-execInstruction Ge   = boolOp (>=)
-execInstruction Le   = boolOp (<=)
+execInstruction Gt   = applyOp (makeBoolOp (>) ">")
+execInstruction Lt   = applyOp (makeBoolOp (<) "<")
+execInstruction Ge   = applyOp (makeBoolOp (>=) ">=")
+execInstruction Le   = applyOp (makeBoolOp (<=) "<=")
+
+execInstruction Eq   = applyOp (Operator f "=")
+    where f x y = Just $ B $ x == y
+
 execInstruction Not  = do
     B x <- popS
     pushS $ B $ not x
@@ -241,15 +238,22 @@ exec2 f = do
     y <- popS
     pushS $ f y x
 
-numOp f = do
-    I x <- popS
-    I y <- popS
-    pushS $ I $ f y x
+data Operator = Operator (Val -> Val -> Maybe Val) String
 
-boolOp f = do
-    I x <- popS
-    I y <- popS
-    pushS $ B $ f y x
+makeNumOp f name = Operator g name
+    where g (I x) (I y) = Just $ I (f x y)
+          g _ _         = Nothing
+
+makeBoolOp f name = Operator g name
+    where g (I x) (I y) = Just $ B (f x y)
+          g _ _         = Nothing
+
+applyOp (Operator f name) = do
+    a <- popS
+    b <- popS
+    case (f b a) of
+        Just r  -> pushS r
+        Nothing -> fail $ "Type Error: " ++ name ++ " " ++ show a ++ " " ++ show b
 
 pushS x = modify (\m -> m { machineStackS = push x (machineStackS m)})
 pushR x = modify (\m -> m { machineStackR = push x (machineStackR m)})
