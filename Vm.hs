@@ -92,8 +92,8 @@ runMachine = do
             runMachine
         Nothing -> return ()
 
-apply (Value x)       = pushS x
-apply (Instruction i) = execInstruction i
+apply (Value x) = pushS x
+apply i         = execInstruction i
 
 execInstruction Add   = applyOp (Operator f "+")
     where f (I x) (I y)     = Just $ I (x + y)
@@ -177,7 +177,7 @@ execInstruction Lookup = do
 
 execInstruction Save = do
     cp  <- gets machineCP
-    pushR $ CP (Instruction Save : cp)
+    pushR $ CP (Save : cp)
 
 execInstruction Drop = popS >> return ()
 

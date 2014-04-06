@@ -3,13 +3,15 @@ module Compile where
 import Control.Applicative
 import Data.List
 import VmTypes
+import VmCode
 
 import SExprs
 
-type Tok = String
+type Tok = Symbol
 
-compile = concat . optimise . concat . intersperse ["\n"] . map (intersperse " ") . map compileTokens
+compile = concat . intersperse "\n" . map formatProgram . map compileTokens
 
+compileTokens :: SExpr -> [Tok]
 compileTokens = compileExpr . transform
 
 transform :: SExpr -> SExpr
@@ -28,8 +30,6 @@ transform' (SSymbol "let")  expr = letToLambda expr
 transform' (SSymbol "let*") expr = letStarToLet expr
 transform' (SSymbol "define") (SCons (SCons (SSymbol name) vars) body) = 
     fromList $ [SSymbol "define", SSymbol name, makeLambda vars body]
--- transform' (SSymbol "define":SList (SSymbol name:vars): body)
---     | all (\(SSymbol s) -> True) vars = SList $ [SSymbol "define", SSymbol name, SList ((SSymbol "lambda":SList vars:body))]
 transform' car cdr = SCons car cdr
 
 condToIf SNil = SNil
@@ -48,44 +48,44 @@ makeLambda vars body = fromList $ (SSymbol "lambda":vars:toList body)
 
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
-compileExpr (SInt x)       = [show x]
-compileExpr (SBool True)   = ["true"]
-compileExpr (SBool False)  = ["false"]
-compileExpr (SString str)  = [show str]
+compileExpr (SInt x)       = [Value $ I x]
+compileExpr (SBool True)   = [Value $ B True]
+compileExpr (SBool False)  = [Value $ B False]
+compileExpr (SString str)  = [Value $ Str str]
 compileExpr (SCons (SSymbol "quote") expr)  = compileQuoted expr
 compileExpr (SCons (SSymbol "define") (SCons (SSymbol name) (SCons body SNil)))
-                           = compileExpr body ++ [vmSymbol name, "def", "nil"]
+                           = compileExpr body ++ [vmSymbol name, Store, Value Nil]
 compileExpr (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda vars body
 compileExpr (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
                            = compileIf cond true_branch false_branch
-compileExpr (SCons (SSymbol "$vm-op") (SCons (SInt arity) instructions)) = ["nil"] ++ block (["drop"] ++ concat (replicate (fromIntegral arity) ["`", "flip"]) ++ ["drop"] ++ mapToList getSymbol instructions) ++ [","]
-        where getSymbol (SSymbol x) = x
-compileExpr (SCons (SSymbol "begin") exprs) = concat $ intersperse ["drop"] $ mapToList compileExpr exprs
+compileExpr (SCons (SSymbol "$vm-op") (SCons (SInt arity) instructions)) = [Value Nil] ++ block ([Drop] ++ concat (replicate (fromIntegral arity) [DeCons, Flip]) ++ [Drop] ++ mapToList getSymbol instructions) ++ [Cons]
+         where getSymbol (SSymbol x) = readInstruction x
+compileExpr (SCons (SSymbol "begin") exprs) = concat $ intersperse [Drop] $ mapToList compileExpr exprs
 compileExpr (SCons (SSymbol "apply") (SCons function (SCons args SNil))) = applyLambda (compileExpr function) (compileExpr args)
 compileExpr (SCons f args)   = applyLambda (compileExpr f) (compileArgs args)
-compileExpr (SSymbol x)    = [vmSymbol x, "!"]
+compileExpr (SSymbol x)    = [vmSymbol x, Lookup]
 
-compileQuoted SNil     = ["nil"]
-compileQuoted (SCons car cdr) = compileQuoted cdr ++ compileQuoted car ++ [","]
+compileQuoted SNil     = [Value Nil]
+compileQuoted (SCons car cdr) = compileQuoted cdr ++ compileQuoted car ++ [Cons]
 compileQuoted (SSymbol x)    = [vmSymbol x]
-compileQuoted (SInt x)       = [show x]
-compileQuoted (SString x)    = [show x]
+compileQuoted (SInt x)       = [Value $ I x]
+compileQuoted (SString x)    = [Value $ Str x]
 
-compileIf cond true_branch false_branch = block(compileExpr true_branch) ++ block(compileExpr false_branch) ++ compileExpr cond ++ ["if", "jmp"]
+compileIf cond true_branch false_branch = block(compileExpr true_branch) ++ block(compileExpr false_branch) ++ compileExpr cond ++ [If, Jmp]
 
 compileLambda :: SExpr -> SExpr -> [Tok]
-compileLambda params body = ["&"] ++ block (["{}", "$"] ++ compileParams params ++ concat (intersperse ["drop"] (mapToList compileExpr body))) ++ [","]
-    where compileParams SNil                     = ["drop"]
-          compileParams (SSymbol x)              = [vmSymbol x, "def"]
-          compileParams (SCons (SSymbol x) rest) = ["`", vmSymbol x, "def"] ++ compileParams rest
+compileLambda params body = [SaveEnv] ++ block ([NewFrame, LoadEnv] ++ compileParams params ++ concat (intersperse [Drop] (mapToList compileExpr body))) ++ [Cons]
+    where compileParams SNil                     = [Drop]
+          compileParams (SSymbol x)              = [vmSymbol x, Store]
+          compileParams (SCons (SSymbol x) rest) = [DeCons, vmSymbol x, Store] ++ compileParams rest
 
-block instructions = ["["] ++ instructions ++ ["]"]
+block instructions = [Value (CP instructions)]
 
-compileArgs args = ["nil"] ++ concat (reverse (mapToList (\x -> compileExpr x ++ [","]) args))
+compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr x ++ [Cons]) args))
 
 applyLambda :: [Tok] -> [Tok] -> [Tok]
-applyLambda function args = ["&"] ++ args ++ function ++ ["`", "jmp", "flip", "$"]
+applyLambda function args = [SaveEnv] ++ args ++ function ++ [DeCons, Jmp, Flip, LoadEnv]
 
-vmSymbol x = ":" ++ x
+vmSymbol x = Value $ S x
 
 optimise = id

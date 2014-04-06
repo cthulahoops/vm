@@ -1,5 +1,6 @@
-module VmCode (parseProgram) where
+module VmCode (parseProgram, formatProgram, readInstruction) where
 
+import Data.List
 import Control.Applicative ((<*), (*>), (<$>))
 import Text.ParserCombinators.Parsec hiding (State)
 import Text.Parsec.Numbers
@@ -17,7 +18,7 @@ term  = try value <|> try instruction
 
 value = Value <$> (number <|> symbol <|> stringLit <|> block <|> bool <|> nil)
 
-instruction = choice [try (string k >> return (Instruction v)) | (k, v) <- instructionMap]
+instruction = choice [try (string k >> return v) | (k, v) <- instructionMap]
 
 number = parseIntegral >>= return . I
 
@@ -46,6 +47,20 @@ bool = (string "true" >> return (B True)) <|> (string "false" >> return (B False
 nil  = string "nil" >> return Nil
 
 comment = char '#' >> many (noneOf "\n") >> (optional $ char '\n') >> return '\n'
+
+formatProgram xs = concat $ intersperse " " $ map f xs
+    where f (Value x) = formatVal x
+          f ins = head $ [k | (k, v) <- instructionMap, v == ins]
+
+readInstruction x = case [v | (k, v) <- instructionMap, k == x] of [y] -> y; [] -> error x
+
+formatVal (I x) = show x
+formatVal (B True) = "true"
+formatVal (B False) = "false"
+formatVal Nil = "nil"
+formatVal (S x) = ":" ++ x
+formatVal (Str x) = show x
+formatVal (CP xs) = "[ " ++ formatProgram xs ++ " ]"
 
 instructionMap = [("+", Add),
                ("-", Sub),
