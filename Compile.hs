@@ -7,11 +7,9 @@ import VmCode
 
 import SExprs
 
-type Tok = Symbol
-
 compile = concat . intersperse "\n" . map formatProgram . map compileTokens
 
-compileTokens :: SExpr -> [Tok]
+compileTokens :: SExpr -> [Symbol]
 compileTokens = compileExpr . transform
 
 transform :: SExpr -> SExpr
@@ -73,7 +71,7 @@ compileQuoted (SString x)    = [Value $ Str x]
 
 compileIf cond true_branch false_branch = block(compileExpr true_branch) ++ block(compileExpr false_branch) ++ compileExpr cond ++ [If, Jmp]
 
-compileLambda :: SExpr -> SExpr -> [Tok]
+compileLambda :: SExpr -> SExpr -> [Symbol]
 compileLambda params body = [SaveEnv] ++ block ([NewFrame, LoadEnv] ++ compileParams params ++ concat (intersperse [Drop] (mapToList compileExpr body))) ++ [Cons]
     where compileParams SNil                     = [Drop]
           compileParams (SSymbol x)              = [vmSymbol x, Store]
@@ -83,7 +81,7 @@ block instructions = [Value (CP instructions)]
 
 compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr x ++ [Cons]) args))
 
-applyLambda :: [Tok] -> [Tok] -> [Tok]
+applyLambda :: [Symbol] -> [Symbol] -> [Symbol]
 applyLambda function args = [SaveEnv] ++ args ++ function ++ [DeCons, Jmp, Flip, LoadEnv]
 
 vmSymbol x = Value $ S x
