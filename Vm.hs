@@ -140,6 +140,7 @@ execInstruction Type = do
         Str _ -> S "string"
         Nil -> S "nil"
         P _ -> S "pair"
+        CP _ -> S "procedure"
 
 execInstruction Show = do
     var <- popS
@@ -151,6 +152,7 @@ execInstruction Show = do
         B False -> Str "#f"
         Nil   -> Str "()"
         P x   -> Str ("<" ++ (show x) ++ ">")
+        CP x  -> Str "<procedure>"
         
 execInstruction If = do
     cond <- popS
@@ -196,9 +198,13 @@ execInstruction DeCons = do
     case v of
         P ptr -> do
             mem <- gets machineMemory
-            let Just (Pair x y) = deref ptr mem
-            pushS $ y
-            pushS $ x
+            case deref ptr mem of
+                Just (Pair x y) -> do
+                    pushS $ y
+                    pushS $ x
+                Just (Frame _ _) -> do
+                    pushS $ Nil
+                    pushS $ S "$vm-memory-frame"
         _ -> fail $ "Can't DeCons: " ++ show v
 
 execInstruction SaveEnv = do

@@ -22,11 +22,9 @@ main = do
                     Just line -> eval machine line >>= loop
                     Nothing   -> return ()
           eval machine line =
-                case parseCompile line of
-                    Right program -> do
-                        (result, machine') <- runVm (machine {machineCP = program})
-                        print result
-                        return machine'
+                case parseCompile $ "(begin (write " ++ line ++ ") (newline))" of
+                    Right program ->
+                        execVm (machine {machineCP = program})
                     Left error -> do
                         print error
                         return machine

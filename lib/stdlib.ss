@@ -38,7 +38,12 @@
 (define not  (lambda (x) (if x #f #t)))
 (define map  (lambda (f xs) (if (null? xs) '() (cons (f (car xs)) (map f (cdr xs))))))
 
-(define (pair? x) (eqv? 'pair (vm? x)))
+(define (procedure? x) (and
+                         (eqv? 'pair (vm? x))
+                         (eqv? 'procedure (vm? (car x)))))
+(define (pair? x)   (and
+                      (eqv? 'pair (vm? x))
+                      (not (procedure? x))))
 (define (number? x) (eqv? 'number (vm? x)))
 (define (symbol? x) (eqv? 'symbol (vm? x)))
 (define (string? x) (eqv? 'string (vm? x)))
