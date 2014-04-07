@@ -65,7 +65,7 @@ takeInstruction = do
                                                              | otherwise = do
                                                                          let Just (CP instructions', r') = pop r
                                                                          put $ ms {machineCP = instructions', machineStackR = r'}
-                                                                         gc
+                                                                         -- gc
                                                                          takeInstruction
                            
 
