@@ -70,7 +70,7 @@ compileQuoted (SString x)    = [Value $ Str x]
 
 compileIf cond true_branch false_branch = block(compileExpr true_branch)
                                        ++ block(compileExpr false_branch)
-                                       ++ compileExpr cond
+                                       ++ compileExpr cond ++ [Value (B False), Eq, Not]
                                        ++ [If, Jmp]
 
 compileLambda :: SExpr -> SExpr -> [Symbol]
