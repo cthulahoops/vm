@@ -153,11 +153,13 @@ execInstruction Show = do
         P x   -> Str ("<" ++ (show x) ++ ">")
         
 execInstruction If = do
-    B  c <- popS
-    _else <- popS
-    _then <- popS
-    pushS (if c then _then else _else)
-
+    cond <- popS
+    case cond of
+        B c -> do _else <- popS
+                  _then <- popS
+                  pushS (if c then _then else _else)
+        _   -> fail $ "Conditional must be boolean: " ++ show cond
+               
 execInstruction Jmp = do
     CP cp <- popS
     loadInstructions cp
