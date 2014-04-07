@@ -10,9 +10,18 @@
 (define >   ($vm-op 2 >))
 (define <=  ($vm-op 2 <=))
 (define >=  ($vm-op 2 >=))
-(define =   ($vm-op 2 =))
 
-(define (null? x) (= '() x))
+(define eq?   ($vm-op 2 =))
+(define (= x y) (and (number? x) (number? y) (eq? x y)))
+(define eqv?  eq?)
+
+(define (equal? x y)
+    (or (eq? x y)
+        (and (pair? x) (pair? y) (equal? (car x) (car y)) (equal? (cdr x) (cdr y)))))
+
+(define error ($vm-op 1 error))
+
+(define (null? x) (eq? '() x))
 
 (define $vm-port ($vm-op 1 port))
 (define (current-output-port) ($vm-port 'stdout))
@@ -28,8 +37,6 @@
 (define list (lambda x x))
 (define not  (lambda (x) (if x #f #t)))
 (define map  (lambda (f xs) (if (null? xs) '() (cons (f (car xs)) (map f (cdr xs))))))
-
-(define eqv? =)
 
 (define (pair? x) (eqv? 'pair (vm? x)))
 (define (number? x) (eqv? 'number (vm? x)))
@@ -53,3 +60,6 @@
   (cond [(pair? x) (string-append " " (value->string (car x)) (tail->string (cdr x)))]
 	  [(null? x) ")"]
 	  [else (string-append " . " (str x) ")")]))
+
+(define (assert x msg) (if x #t (error msg)))
+(define (assert-equal? x y)  (assert (equal? x y) (value->string (list 'assertion-failed x y)))) 

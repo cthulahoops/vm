@@ -1,0 +1,11 @@
+(assert-equal? #f (or))
+(assert-equal? 1  (or 1 2 3 4))
+(assert-equal? 7  (or #f 7 8 #f))
+(assert-equal? #t (or #t 4 5))
+(assert-equal? #f (or #f #f #f #f))
+
+(assert-equal? #t (and))
+(assert-equal? 4  (and 1 2 3 4))
+(assert-equal? #f (and #f 7 8 #f))
+(assert-equal? 5  (and #t 4 5))
+(assert-equal? #f (and #f #f #f #f))

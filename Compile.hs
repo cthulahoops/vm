@@ -28,12 +28,13 @@ transform' (SSymbol "let")  expr = letToLambda expr
 transform' (SSymbol "let*") expr = letStarToLet expr
 transform' (SSymbol "define") (SCons (SCons (SSymbol name) vars) body) = 
     fromList $ [SSymbol "define", SSymbol name, makeLambda vars body]
+transform' (SSymbol "and") exprs = andToIf exprs
+transform' (SSymbol "or") exprs = orToIf exprs
 transform' car cdr = SCons car cdr
 
 condToIf SNil = SNil
 condToIf (SCons (SCons (SSymbol "else") (SCons body SNil)) SNil)  = body
 condToIf (SCons (SCons cond (SCons body SNil)) more) = makeIf cond body (condToIf more)
-     where makeIf cond_ then_ else_ = fromList $ [SSymbol "if", cond_, then_, else_]
 
 letToLambda (SCons bindings body) = fromList $ (makeLambda (fromList vars) body):values
      where (vars, values) = unzip $ mapToList toPair bindings
@@ -42,7 +43,19 @@ letToLambda (SCons bindings body) = fromList $ (makeLambda (fromList vars) body)
 letStarToLet (SCons SNil body) = (SCons (SSymbol "begin") body)
 letStarToLet (SCons (SCons binding bindings) body) = fromList [SSymbol "let", fromList [binding], fromList (SSymbol "let*":bindings:toList body)]
 
+andToIf SNil = SBool True
+andToIf (SCons expr SNil) = fromList [SSymbol "let",
+    fromList [fromList [SSymbol "$and-var", expr]],
+    makeIf (SSymbol "$and-var") (SSymbol "$and-var") (SBool False)]
+andToIf (SCons expr exprs) = makeIf expr (SCons (SSymbol "and") exprs) (SBool False)
+
+orToIf SNil = SBool False
+orToIf (SCons expr exprs) = fromList [SSymbol "let",
+    fromList [fromList [SSymbol "$or-var", expr]],
+    makeIf (SSymbol "$or-var") (SSymbol "$or-var") (SCons (SSymbol "or") exprs)]
+
 makeLambda vars body = fromList $ (SSymbol "lambda":vars:toList body)
+makeIf cond_ then_ else_ = fromList $ [SSymbol "if", cond_, then_, else_]
 
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
