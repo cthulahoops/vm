@@ -90,6 +90,16 @@ block instructions = [Value (CP instructions)]
 
 compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr x ++ [Cons]) args))
 
+-- Calling a function:
+--  Example: [SaveEnv,Value Nil,Value (I 7),Cons,Value (S "f"),Lookup,DeCons,Jmp,Flip,LoadEnv] 
+--  SaveEnv - push callers environment onto the stack
+--  Value Nil, Value (I 7), Cons - Push function arguments onto the stack.
+--  Value (S "f"), Lookup - Get function to call onto the stack.
+--  Decons - Unpack function environment and code.
+--  Jmp - Jump to code.
+--  On return, stack will consist of [Return Value, Caller Env]
+--  Flip - Swap environment and return value.
+--  LoadEnv - Restore the environment.
 applyLambda :: [Symbol] -> [Symbol] -> [Symbol]
 applyLambda function args = [SaveEnv] ++ args ++ function ++ [DeCons, Jmp, Flip, LoadEnv]
 
