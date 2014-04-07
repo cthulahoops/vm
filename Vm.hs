@@ -236,6 +236,10 @@ execInstruction Read = do
     line <- liftIO $ hGetLine handle
     pushS $ Str line
 
+execInstruction Error = do
+    arg <- popS
+    fail $ show arg
+
 exec1 f = do
     arg <- popS 
     pushS $ f arg

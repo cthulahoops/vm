@@ -88,4 +88,5 @@ instructionMap = [("+", Add),
                ("?", Type),
                ("port", GetPort),
                ("w", Write),
-               ("r", Read)]
+               ("r", Read),
+               ("error", Error)]
