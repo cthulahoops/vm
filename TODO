@@ -6,20 +6,20 @@ TODO
 * (set-car!
 * (set-cdr! 
 * Varargs for +, -, *, etc.
-* (and & (or
 * Standard library.
 * Smarter parser (unmatched (
-* Non-integers
+* Floating point and division.
 * call/cc
-* Test system.
 * Tail call optimisation.
 * Macros
-* Compiler should produce VM ready code, replace mis-named Assemble.hs with disk serialisation/deserialisation.
 * Add #!Run lines to compiler output.
 * Scheme Comments
 
 DONE
 
+* Test system.
+* Compiler should produce VM ready code, replace mis-named Assemble.hs with disk serialisation/deserialisation.
+* (and & (or
 * IO
 * (begin
 * (lambda (x . y)
