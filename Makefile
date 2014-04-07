@@ -4,10 +4,13 @@ CCMODS=Compile.hs Parse.hs SExprs.hs
 
 all: ${PROGS}
 
+test: LispC Run Repl
+	./run_tests.sh
+
 clean:
 	-rm *.o *.hi ${PROGS}
 
-LispC: LispC.hs ${VMMODS} ${CCMODS}
+LispC: LispC.hs ${CCMODS}
 	ghc --make -O2 -o LispC LispC.hs
 
 Run: Run.hs ${VMMODS}
