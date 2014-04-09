@@ -5,7 +5,7 @@ import System.IO
 type Symbol = Ins
 
 data Ins = Add | Mul | Sub | Flip | Dup | Gt | Lt | Eq | Ge | Le | Not
-         | If | Call | Save | Rot | Drop | Store | Lookup | Cons | DeCons
+         | If | Call | Jump | Save | Rot | Drop | Store | Lookup | Cons | DeCons
          | SaveEnv | LoadEnv | NewFrame | Type | Show | GetPort | Write | Read
          | Value Val | Error
     deriving (Show, Eq)

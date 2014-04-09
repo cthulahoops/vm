@@ -68,13 +68,6 @@ takeInstruction = do
                                                                          -- gc
                                                                          takeInstruction
                            
-
-loadInstructions :: [Symbol] -> Vm ()
-loadInstructions cp = modify (\m -> m {
-        machineCP     = cp,
-        machineStackR = push (CP (machineCP m)) (machineStackR m)
-        })
-
 runMachine :: Vm ()
 runMachine = do
 --            stack <- (gets machineStackS)
@@ -164,7 +157,14 @@ execInstruction If = do
                
 execInstruction Call = do
     CP cp <- popS
-    loadInstructions cp
+    modify (\m -> m {
+        machineCP     = cp,
+        machineStackR = push (CP (machineCP m)) (machineStackR m)
+        })
+
+execInstruction Jump = do
+    CP cp <- popS
+    modify (\m -> m {machineCP = cp})
 
 execInstruction Store = do
     S key <- popS
