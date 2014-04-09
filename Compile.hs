@@ -10,7 +10,7 @@ import SExprs
 compile = concat . intersperse "\n" . map formatProgram . map compileTokens
 
 compileTokens :: SExpr -> [Symbol]
-compileTokens = compileExpr . transform
+compileTokens = compileExpr False . transform
 
 transform :: SExpr -> SExpr
 transform x@(SCons (SSymbol "quote") xs) = x
@@ -59,21 +59,22 @@ makeIf cond_ then_ else_ = fromList $ [SSymbol "if", cond_, then_, else_]
 
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
-compileExpr (SInt x)       = [Value $ I x]
-compileExpr (SBool True)   = [Value $ B True]
-compileExpr (SBool False)  = [Value $ B False]
-compileExpr (SString str)  = [Value $ Str str]
-compileExpr (SCons (SSymbol "quote") expr)  = compileQuoted expr
-compileExpr (SCons (SSymbol "define") (SCons (SSymbol name) (SCons body SNil)))
-                           = compileExpr body ++ [vmSymbol name, Store, Value Nil]
-compileExpr (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda vars body
-compileExpr (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
-                           = compileIf cond true_branch false_branch
-compileExpr (SCons (SSymbol "$vm-op") (SCons (SInt arity) ins)) = compileVmOp arity ins
-compileExpr (SCons (SSymbol "begin") exprs) = concat $ intersperse [Drop] $ mapToList compileExpr exprs
-compileExpr (SCons (SSymbol "apply") (SCons function (SCons args SNil))) = applyLambda (compileExpr function) (compileExpr args)
-compileExpr (SCons f args)   = applyLambda (compileExpr f) (compileArgs args)
-compileExpr (SSymbol x)    = [vmSymbol x, Lookup]
+compileExpr :: Bool -> SExpr -> [Symbol]
+compileExpr isTail (SInt x)       = [Value $ I x]
+compileExpr isTail (SBool True)   = [Value $ B True]
+compileExpr isTail (SBool False)  = [Value $ B False]
+compileExpr isTail (SString str)  = [Value $ Str str]
+compileExpr isTail (SCons (SSymbol "quote") expr)  = compileQuoted expr
+compileExpr isTail (SCons (SSymbol "define") (SCons (SSymbol name) (SCons body SNil)))
+                           = compileExpr False body ++ [vmSymbol name, Store, Value Nil]
+compileExpr isTail (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda vars body
+compileExpr isTail (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
+                           = compileIf isTail cond true_branch false_branch
+compileExpr isTail (SCons (SSymbol "$vm-op") (SCons (SInt arity) ins)) = compileVmOp arity ins
+compileExpr isTail (SCons (SSymbol "begin") exprs) = concat $ intersperse [Drop] $ mapToList (compileExpr False) exprs
+compileExpr isTail (SCons (SSymbol "apply") (SCons function (SCons args SNil))) = applyLambda isTail (compileExpr False function) (compileExpr False args)
+compileExpr isTail (SCons f args)   = applyLambda isTail (compileExpr False f) (compileArgs args)
+compileExpr isTail (SSymbol x)    = [vmSymbol x, Lookup]
 
 compileQuoted SNil     = [Value Nil]
 compileQuoted (SCons car cdr) = compileQuoted cdr ++ compileQuoted car ++ [Cons]
@@ -81,14 +82,19 @@ compileQuoted (SSymbol x)    = [vmSymbol x]
 compileQuoted (SInt x)       = [Value $ I x]
 compileQuoted (SString x)    = [Value $ Str x]
 
-compileIf cond true_branch false_branch = block(compileExpr true_branch)
-                                       ++ block(compileExpr false_branch)
-                                       ++ compileExpr cond ++ [Value (B False), Eq, Not]
-                                       ++ [If, Call]
+compileIf isTail cond true_branch false_branch = block(compileExpr True true_branch)
+                                              ++ block(compileExpr True false_branch)
+                                              ++ compileExpr False cond ++ [Value (B False), Eq, Not]
+                                              ++ [If, (if isTail then Jump else Call)]
 
 compileLambda :: SExpr -> SExpr -> [Symbol]
-compileLambda params body = [SaveEnv] ++ block ([NewFrame, LoadEnv] ++ compileParams params ++ concat (intersperse [Drop] (mapToList compileExpr body))) ++ [Cons]
-    where compileParams SNil                     = [Drop]
+compileLambda params body = [SaveEnv]
+                         ++ block ([NewFrame, LoadEnv]
+                                 ++ compileParams params
+                                 ++ concat (intersperse [Drop] (compileBody $ toList body)))
+                         ++ [Cons]
+    where compileBody body = map (compileExpr False) (init body) ++ [compileExpr True (last body)]
+          compileParams SNil                     = [Drop]
           compileParams (SSymbol x)              = [vmSymbol x, Store]
           compileParams (SCons (SSymbol x) rest) = [DeCons, vmSymbol x, Store] ++ compileParams rest
 
@@ -101,7 +107,7 @@ compileVmOp arity ins = [Value Nil] ++ block functionBody ++ [Cons]
 
 block instructions = [Value (CP instructions)]
 
-compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr x ++ [Cons]) args))
+compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr False x ++ [Cons]) args))
 
 -- Calling a function:
 --  Example: [SaveEnv,Value Nil,Value (I 7),Cons,Value (S "f"),Lookup,DeCons,Call,Flip,LoadEnv] 
@@ -113,8 +119,12 @@ compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr 
 --  On return, stack will consist of [Return Value, Caller Env]
 --  Flip - Swap environment and return value.
 --  LoadEnv - Restore the environment.
-applyLambda :: [Symbol] -> [Symbol] -> [Symbol]
-applyLambda function args = [SaveEnv] ++ args ++ function ++ [DeCons, Call, Flip, LoadEnv]
+applyLambda :: Bool -> [Symbol] -> [Symbol] -> [Symbol]
+applyLambda False function args = callReturn $ args ++ function
+applyLambda True  function args = callTail   $ args ++ function
+
+callTail   code = code ++ [DeCons, Jump]
+callReturn code = [SaveEnv] ++ code ++ [DeCons, Call, Flip, LoadEnv]
 
 vmSymbol x = Value $ S x
 
