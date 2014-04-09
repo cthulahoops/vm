@@ -52,7 +52,9 @@ formatProgram xs = concat $ intersperse " " $ map f xs
     where f (Value x) = formatVal x
           f ins = head $ [k | (k, v) <- instructionMap, v == ins]
 
-readInstruction x = case [v | (k, v) <- instructionMap, k == x] of [y] -> y; [] -> error x
+readInstruction x = case [v | (k, v) <- instructionMap, k == x] of
+                        [y] -> y;
+                        []  -> error $ "Invalid VM instruction: " ++ x
 
 formatVal (I x) = show x
 formatVal (B True) = "true"
@@ -72,21 +74,21 @@ instructionMap = [("+", Add),
                ("=", Eq),
                ("dup", Dup),
                ("flip", Flip),
-               ("def", Store),
-               ("!", Lookup),
+               ("store", Store),
+               ("lookup", Lookup),
                ("rot", Rot),
-               ("jmp", Jmp),
+               ("jump", Jmp),
                ("not", Not),
                ("if", If),
                ("drop", Drop),
-               (",", Cons),
-               ("`", DeCons),
-               ("&", SaveEnv),
-               ("{}", NewFrame),
-               ("$", LoadEnv),
+               ("cons", Cons),
+               ("decons", DeCons),
+               ("save", SaveEnv),
+               ("new", NewFrame),
+               ("load", LoadEnv),
                ("show", Show),
-               ("?", Type),
+               ("type?", Type),
                ("port", GetPort),
-               ("w", Write),
-               ("r", Read),
+               ("write", Write),
+               ("read", Read),
                ("error", Error)]

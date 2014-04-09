@@ -1,8 +1,8 @@
-(define vm?  ($vm-op 1 ?))
+(define vm?  ($vm-op 1 type?))
 (define str  ($vm-op 1 show))
-(define car  ($vm-op 1 ` flip drop))
-(define cdr  ($vm-op 1 ` drop))
-(define cons ($vm-op 2 flip ,))
+(define car  ($vm-op 1 decons flip drop))
+(define cdr  ($vm-op 1 decons drop))
+(define cons ($vm-op 2 flip cons))
 (define vm+ ($vm-op 2 +))
 (define vm* ($vm-op 2 *))
 (define vm- ($vm-op 2 -))
@@ -28,11 +28,11 @@
 (define (current-input-port) ($vm-port 'stdin))
 (define (current-error-port) ($vm-port 'stderr))
 
-(define $vm-write ($vm-op 2 w))
+(define $vm-write ($vm-op 2 write))
 (define (newline) ($vm-write (current-output-port) "\n"))
 (define (write x) ($vm-write (current-output-port) (value->string x)))
 
-(define $vm-read ($vm-op 1 r))
+(define $vm-read ($vm-op 1 read))
 
 (define list (lambda x x))
 (define not  (lambda (x) (if x #f #t)))
