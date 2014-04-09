@@ -84,7 +84,7 @@ compileQuoted (SString x)    = [Value $ Str x]
 compileIf cond true_branch false_branch = block(compileExpr true_branch)
                                        ++ block(compileExpr false_branch)
                                        ++ compileExpr cond ++ [Value (B False), Eq, Not]
-                                       ++ [If, Jmp]
+                                       ++ [If, Call]
 
 compileLambda :: SExpr -> SExpr -> [Symbol]
 compileLambda params body = [SaveEnv] ++ block ([NewFrame, LoadEnv] ++ compileParams params ++ concat (intersperse [Drop] (mapToList compileExpr body))) ++ [Cons]
@@ -104,17 +104,17 @@ block instructions = [Value (CP instructions)]
 compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr x ++ [Cons]) args))
 
 -- Calling a function:
---  Example: [SaveEnv,Value Nil,Value (I 7),Cons,Value (S "f"),Lookup,DeCons,Jmp,Flip,LoadEnv] 
+--  Example: [SaveEnv,Value Nil,Value (I 7),Cons,Value (S "f"),Lookup,DeCons,Call,Flip,LoadEnv] 
 --  SaveEnv - push callers environment onto the stack
 --  Value Nil, Value (I 7), Cons - Push function arguments onto the stack.
 --  Value (S "f"), Lookup - Get function to call onto the stack.
 --  Decons - Unpack function environment and code.
---  Jmp - Jump to code.
+--  Call - Push next instruction to return stack and jump to code.
 --  On return, stack will consist of [Return Value, Caller Env]
 --  Flip - Swap environment and return value.
 --  LoadEnv - Restore the environment.
 applyLambda :: [Symbol] -> [Symbol] -> [Symbol]
-applyLambda function args = [SaveEnv] ++ args ++ function ++ [DeCons, Jmp, Flip, LoadEnv]
+applyLambda function args = [SaveEnv] ++ args ++ function ++ [DeCons, Call, Flip, LoadEnv]
 
 vmSymbol x = Value $ S x
 

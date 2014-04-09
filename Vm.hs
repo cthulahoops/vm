@@ -162,7 +162,7 @@ execInstruction If = do
                   pushS (if c then _then else _else)
         _   -> fail $ "Conditional must be boolean: " ++ show cond
                
-execInstruction Jmp = do
+execInstruction Call = do
     CP cp <- popS
     loadInstructions cp
 
