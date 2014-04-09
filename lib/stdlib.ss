@@ -5,7 +5,7 @@
 (define cons ($vm-op 2 flip ,))
 (define vm+ ($vm-op 2 +))
 (define vm* ($vm-op 2 *))
-(define -   ($vm-op 2 -))
+(define vm- ($vm-op 2 -))
 (define <   ($vm-op 2 <))
 (define >   ($vm-op 2 >))
 (define <=  ($vm-op 2 <=))
@@ -54,6 +54,8 @@
 
 (define + (lambda xs (foldl vm+ 0 xs)))
 (define * (lambda xs (foldl vm* 1 xs)))
+(define (- x . xs) (foldl vm- x xs))
+
 (define string-append (lambda xs (foldl vm+ "" xs)))
 
 (define (value->string x)
