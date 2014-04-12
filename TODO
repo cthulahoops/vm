@@ -1,22 +1,28 @@
 TODO
 
-* Formatting for display of objects (esp references).
+* garbage collection that isn't unusable slow. (Just call infrequently.)
+* read & eval
+* repl written in scheme.
+* Callers shouldn't cons function arguments onto the stack.
+* Useful compiler errors.
+* Stack traces.
 * (letrec
 * (set!
 * (set-car!
 * (set-cdr! 
-* Varargs for +, -, *, etc.
 * Standard library.
 * Smarter parser (unmatched (
 * Floating point and division.
 * call/cc
-* Tail call optimisation.
 * Macros
 * Add #!Run lines to compiler output.
 * Scheme Comments
 
 DONE
 
+* Varargs for +, -, *, etc.
+* Tail call optimisation.
+* Formatting for display of objects (esp references).
 * Test system.
 * Compiler should produce VM ready code, replace mis-named Assemble.hs with disk serialisation/deserialisation.
 * (and & (or
