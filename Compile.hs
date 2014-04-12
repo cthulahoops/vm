@@ -10,7 +10,7 @@ import SExprs
 compile = concat . intersperse "\n" . map formatProgram . map compileTokens
 
 compileTokens :: SExpr -> [Symbol]
-compileTokens = compileExpr False . transform
+compileTokens = optimise . compileExpr False . transform
 
 transform :: SExpr -> SExpr
 transform x@(SCons (SSymbol "quote") xs) = x
@@ -133,4 +133,21 @@ callReturn code = [SaveEnv] ++ code ++ [DeCons, Call, Flip, LoadEnv]
 
 vmSymbol x = Value $ S x
 
-optimise = id
+optimise = optimiseValueDrop . unusedFrame
+
+optimiseValueDrop [] = []
+optimiseValueDrop (Value _:Drop:code) = optimiseValueDrop code
+optimiseValueDrop (Value (CP block):code) = Value (CP (optimiseValueDrop block)):optimiseValueDrop code
+optimiseValueDrop (x:code) = x:optimiseValueDrop code
+
+unusedFrame (NewFrame:LoadEnv:code) = (if usesStore code then [NewFrame,LoadEnv] else [LoadEnv]) ++ unusedFrame code
+unusedFrame (Value (CP block):code) = Value (CP (unusedFrame block)):unusedFrame code
+unusedFrame (x:code) = x:unusedFrame code
+unusedFrame [] = []
+
+usesStore (Store:code) = True
+usesStore (NewFrame:LoadEnv:code) = False
+usesStore (Value (CP block):code) = usesStore block || usesStore code
+usesStore (x:code) = usesStore code
+usesStore [] = False
+
