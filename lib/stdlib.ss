@@ -1,4 +1,5 @@
 (define vm?  ($vm-op 1 type?))
+(define error ($vm-op 1 error))
 (define str  ($vm-op 1 show))
 (define car  ($vm-op 1 decons flip drop))
 (define cdr  ($vm-op 1 decons drop))
