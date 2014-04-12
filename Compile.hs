@@ -71,7 +71,7 @@ compileExpr isTail (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda 
 compileExpr isTail (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
                            = compileIf isTail cond true_branch false_branch
 compileExpr isTail (SCons (SSymbol "$vm-op") (SCons (SInt arity) ins)) = compileVmOp arity ins
-compileExpr isTail (SCons (SSymbol "begin") exprs) = concat $ intersperse [Drop] $ mapToList (compileExpr False) exprs
+compileExpr isTail (SCons (SSymbol "begin") exprs) = compileSeqence isTail (toList exprs)
 compileExpr isTail (SCons (SSymbol "apply") (SCons function (SCons args SNil))) = applyLambda isTail (compileExpr False function) (compileExpr False args)
 compileExpr isTail (SCons f args)   = applyLambda isTail (compileExpr False f) (compileArgs args)
 compileExpr isTail (SSymbol x)    = [vmSymbol x, Lookup]
@@ -91,7 +91,7 @@ compileLambda :: SExpr -> SExpr -> [Symbol]
 compileLambda params body = [SaveEnv]
                          ++ block ([NewFrame, LoadEnv]
                                  ++ compileParams params
-                                 ++ concat (intersperse [Drop] (compileBody $ toList body)))
+                                 ++ compileSeqence True (toList body))
                          ++ [Cons]
     where compileBody body = map (compileExpr False) (init body) ++ [compileExpr True (last body)]
           compileParams SNil                     = [Drop]
@@ -104,6 +104,11 @@ compileVmOp arity ins = [Value Nil] ++ block functionBody ++ [Cons]
                            ++ [Drop]
                            ++ mapToList getSymbol ins
                getSymbol (SSymbol x) = readInstruction x
+
+compileSeqence :: Bool -> [SExpr] -> [Ins]
+compileSeqence isTail seq = concat
+                          $ intersperse [Drop]
+                          $ map (compileExpr False) (init seq) ++ [compileExpr isTail (last seq)]
 
 block instructions = [Value (CP instructions)]
 
