@@ -33,8 +33,8 @@ transform' (SSymbol "or") exprs = orToIf exprs
 transform' car cdr = SCons car cdr
 
 condToIf SNil = SNil
-condToIf (SCons (SCons (SSymbol "else") (SCons body SNil)) SNil)  = body
-condToIf (SCons (SCons cond (SCons body SNil)) more) = makeIf cond body (condToIf more)
+condToIf (SCons (SCons (SSymbol "else") body) SNil)  = (SCons (SSymbol "begin") body)
+condToIf (SCons (SCons cond body) more) = makeIf cond (SCons (SSymbol "begin") body) (condToIf more)
 
 letToLambda (SCons bindings body) = fromList $ (makeLambda (fromList vars) body):values
      where (vars, values) = unzip $ mapToList toPair bindings
