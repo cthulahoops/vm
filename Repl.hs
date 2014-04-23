@@ -1,3 +1,4 @@
+import Control.Lens
 import Control.Applicative
 import Control.Monad.State
 import System.Console.Readline
@@ -24,7 +25,7 @@ main = do
           eval machine line =
                 case parseCompile $ "(begin (write " ++ line ++ ") (newline))" of
                     Right program ->
-                        execVm (machine {machineCP = program})
+                        execVm (set machineCP program machine)
                     Left error -> do
                         print error
                         return machine

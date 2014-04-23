@@ -1,7 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase #-}
 module Vm where
 
 import System.IO
+
+import Control.Lens
 
 import Data.Maybe
 import Data.List
@@ -22,19 +26,20 @@ type Name = String
 type VmMemory = Memory Name Val
 
 data MachineState = MachineState {
-        machineStackS :: (Stack Val),
-        machineCP     :: [Symbol],
-        machineStackR :: (Stack Val),
-        machineMemory :: VmMemory,
-        machineEnv    :: Ptr
+        _machineStackS :: (Stack Val),
+        _machineCP     :: [Symbol],
+        _machineStackR :: (Stack Val),
+        _machineMemory :: VmMemory,
+        _machineEnv    :: Ptr
     } deriving (Show)
+makeLenses ''MachineState
 
 newMachine program = MachineState {
-        machineStackS = EmptyStack,
-        machineStackR = EmptyStack,
-        machineCP     = program,
-        machineMemory = mem,
-        machineEnv    = ptr}
+        _machineStackS = EmptyStack,
+        _machineStackR = EmptyStack,
+        _machineCP     = program,
+        _machineMemory = mem,
+        _machineEnv    = ptr}
     where (ptr, mem) = newFrame Nothing newMemory
 
 
@@ -55,19 +60,18 @@ runProgram program = evalVm (newMachine program)
 
 takeInstruction :: Vm (Maybe Symbol)
 takeInstruction = do
-    ms <- get
-    case ms of 
-        MachineState {machineCP = (i:instructions)} -> do
-            put $ ms {machineCP = instructions}
+    use machineCP >>= \case
+        (i:instructions) -> do
+            machineCP .= instructions
             return $ Just i
-        MachineState {machineCP = []} -> handleReturn ms
-    where handleReturn ms@(MachineState {machineStackR = r}) | isEmpty r = return Nothing
-                                                             | otherwise = do
-                                                                         let Just (CP instructions', r') = pop r
-                                                                         put $ ms {machineCP = instructions', machineStackR = r'}
-                                                                         -- gc
-                                                                         takeInstruction
-                           
+        [] ->
+            popR >>= \case
+                CP instructions' -> do
+                    machineCP .= instructions'
+                    takeInstruction
+                Nil ->
+                    return Nothing
+
 runMachine :: Vm ()
 runMachine = do
 --            stack <- (gets machineStackS)
@@ -76,12 +80,12 @@ runMachine = do
         Just i  -> do
 --            liftIO $ putStr "Instruction: " >> print i 
             apply i
---            stack <- (gets machineStackS)
---            code  <- (gets machineCP)
---            liftIO $ putStr "<<< "
---            liftIO $ print code
---            liftIO $ putStr "*** "
---            liftIO $ print stack
+         {- stack <- use machineStackS
+            code  <- use machineCP
+            liftIO $ putStr "<<< "
+            liftIO $ print code
+            liftIO $ putStr "*** "
+            liftIO $ print stack -}
             runMachine
         Nothing -> return ()
 
@@ -157,14 +161,13 @@ execInstruction If = do
                
 execInstruction Call = do
     CP cp <- popS
-    modify (\m -> m {
-        machineCP     = cp,
-        machineStackR = push (CP (machineCP m)) (machineStackR m)
-        })
+    returnCP <- use machineCP
+    pushR $ CP returnCP
+    machineCP .= cp
 
 execInstruction Jump = do
     CP cp <- popS
-    modify (\m -> m {machineCP = cp})
+    machineCP .= cp
 
 execInstruction Store = do
     S key <- popS
@@ -180,7 +183,7 @@ execInstruction Lookup = do
             fail $ "undefined variable: " ++ show key
 
 execInstruction Save = do
-    cp  <- gets machineCP
+    cp <- use machineCP
     pushR $ CP (Save : cp)
 
 execInstruction Drop = popS >> return ()
@@ -188,16 +191,14 @@ execInstruction Drop = popS >> return ()
 execInstruction Cons = do
     x <- popS
     y <- popS
-    machine <- get 
-    let (newPtr, mem') = newPair x y (machineMemory machine)
-    put $ machine {machineMemory=mem'}
+    newPtr <- machineMemory %%= newPair x y
     pushS $ P newPtr
 
 execInstruction DeCons = do
     v <- popS
     case v of
         P ptr -> do
-            mem <- gets machineMemory
+            mem <- use machineMemory
             case deref ptr mem of
                 Just (Pair x y) -> do
                     pushS $ y
@@ -208,23 +209,20 @@ execInstruction DeCons = do
         _ -> fail $ "Can't DeCons: " ++ show v
 
 execInstruction SaveEnv = do
-    ptr <- gets machineEnv
-    pushS $ P ptr
+    env <- use machineEnv 
+    pushS $ P env
 
 execInstruction NewFrame = do
     parent <- popS
     let ptr = case parent of Nil   -> Nothing
                              P ptr -> Just ptr
-    machine <- get
-    let (newPtr, mem') = newFrame ptr (machineMemory machine)
-    put $ machine {machineMemory = mem'}
+    newPtr <- machineMemory %%= newFrame ptr
     pushS $ P newPtr
 
 execInstruction LoadEnv = do
-    env <- popS
-    case env of
-        P ptr -> modify (\m -> m {machineEnv = ptr})
-        other -> fail $ "VM Error: failed to restore environment: " ++ show env
+    popS >>= \case
+        P ptr -> machineEnv .= ptr
+        other -> fail $ "VM Error: failed to restore environment: " ++ (show other)
 
 execInstruction GetPort = exec1 getPort
     where getPort (S "stdin")  = H stdin
@@ -272,31 +270,29 @@ applyOp (Operator f name) = do
         Just r  -> pushS r
         Nothing -> fail $ "Type Error: " ++ name ++ " " ++ show a ++ " " ++ show b
 
-pushS x = modify (\m -> m { machineStackS = push x (machineStackS m)})
-pushR x = modify (\m -> m { machineStackR = push x (machineStackR m)})
+pushS :: Val -> Vm ()
+pushS x = machineStackS %= push x
+
+pushR :: Val -> Vm ()
+pushR x = machineStackR %= push x
 
 popS :: Vm Val
-popS = do
-    m <- get
-    case pop (machineStackS m) of
-        Just (x, s') -> do
-            put $ m {machineStackS = s'}
-            return x
-        Nothing ->
-            return Nil
+popS = machineStackS %%= popNil
 
 popR :: Vm Val
-popR = do
-    m <- get
-    let Just (x, r') = pop (machineStackR m)
-    put $ m {machineStackR = r'}
-    return x
+popR = machineStackR %%= popNil
+
+popNil stack = case pop stack of
+    Just (x, s) -> (x, s)
+    Nothing     -> (Nil, stack)
 
 -- Garbage
 gc :: Vm ()
-gc = modify (\machine -> machine {machineMemory = sweep (marks machine) (machineMemory machine)})
-     where marks m     = mark (getTargets (machineMemory m)) (stackPtrs m)
-           stackPtrs m = machineEnv m : getPtrs (toList (machineStackR m) ++ toList (machineStackS m))
+gc = do
+    machine <- get
+    machineMemory %= sweep (marks machine)
+    where marks m   = mark (getTargets (m^.machineMemory)) (stackPtrs m)
+          stackPtrs m = m ^. machineEnv : getPtrs (toList (m ^. machineStackR) ++ toList (m ^. machineStackS))
 
 getTargets :: Memory Name Val -> Ptr -> [Ptr]
 getTargets mem ptr = values $ fromJust $ deref ptr mem
@@ -309,9 +305,11 @@ getPtr (P p) = [p]
 getPtr _     = []
 
 -- Environment Functions
-envStore key value = modify (\m -> m {machineMemory = store (machineEnv m) key value (machineMemory m)})
+envStore key value = do
+    env <- use machineEnv 
+    machineMemory %= store env key value
 
 envLookup :: Name -> Vm (Maybe Val)
 envLookup key = do
-    MachineState {machineMemory = mem, machineEnv = ptr} <- get
-    return $ Memory.lookup ptr key mem
+    ms <- get
+    return $ Memory.lookup (ms ^. machineEnv) key (ms ^. machineMemory)

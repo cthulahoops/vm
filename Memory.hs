@@ -35,6 +35,7 @@ lookup ptr key m@(Memory next mem) = case M.lookup ptr mem of
                                                  Nothing    -> case parent of
                                                         Just p' -> lookup p' key m
                                                         Nothing -> Nothing
+          lookupFrame pair = error $ "VM Error: Expected pair got frame: " ++ show pair
 elems = M.elems
 
 sweep :: [Ptr] -> Memory k a -> Memory k a
