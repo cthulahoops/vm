@@ -7,6 +7,7 @@ import System.IO
 
 import Control.Lens
 
+import Data.Foldable hiding (concatMap)
 import Data.Maybe
 import Data.List
 import Control.Applicative
