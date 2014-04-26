@@ -1,3 +1,5 @@
+(define call/cc ($vm-op 1 (flip nil flip nil flip cons cons flip decons call) cont decons flip drop))
+(define call-with-current-continuation call/cc)
 (define vm?  ($vm-op 1 type?))
 (define error ($vm-op 1 error))
 (define str  ($vm-op 1 show))

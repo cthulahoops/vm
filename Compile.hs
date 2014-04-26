@@ -103,7 +103,9 @@ compileVmOp arity ins = [Value Nil] ++ block functionBody ++ [Cons]
                            ++ concat (replicate (fromIntegral arity) [DeCons, Flip])
                            ++ [Drop]
                            ++ mapToList getSymbol ins
-               getSymbol (SSymbol x) = readInstruction x
+               getSymbol (SSymbol "nil") = Value Nil
+               getSymbol (SSymbol x)     = readInstruction x
+               getSymbol a@(SCons _ _)   = head $ block $ map getSymbol $ toList a
 
 compileSeqence :: Bool -> [SExpr] -> [Ins]
 compileSeqence isTail seq = concat

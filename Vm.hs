@@ -139,6 +139,7 @@ execInstruction Type = do
         Nil -> S "nil"
         P _ -> S "pair"
         CP _ -> S "procedure"
+        C _ ->  S "continuation"
 
 execInstruction Show = do
     var <- popS
@@ -151,6 +152,7 @@ execInstruction Show = do
         Nil   -> Str "()"
         P x   -> Str ("<" ++ (show x) ++ ">")
         CP x  -> Str "<procedure>"
+        C c   -> Str "<continuation>"
         
 execInstruction If = do
     cond <- popS
@@ -161,14 +163,38 @@ execInstruction If = do
         _   -> fail $ "Conditional must be boolean: " ++ show cond
                
 execInstruction Call = do
-    CP cp <- popS
-    returnCP <- use machineCP
-    pushR $ CP returnCP
-    machineCP .= cp
+    popS >>= \case 
+        CP cp -> do
+            returnCP <- use machineCP
+            pushR $ CP returnCP
+            machineCP .= cp
+        C (Cont { contCP = cp,
+                  contStackS = ss,
+                  contStackR = sr,
+                  contEnv    = env}) -> do
+            popS
+            arg <- popS
+            machineStackS .= ss
+            machineCP     .= cp
+            machineEnv    .= env
+            machineStackR .= sr
+            pushS arg
 
-execInstruction Jump = do
-    CP cp <- popS
-    machineCP .= cp
+execInstruction Jump =
+    popS >>= \case
+        CP cp -> machineCP .= cp
+        C (Cont { contCP = cp,
+                  contStackS = ss,
+                  contStackR = sr,
+                  contEnv    = env}) -> do
+            popS
+            arg <- popS
+            machineStackS .= ss
+            machineCP     .= cp
+            machineEnv    .= env
+            machineStackR .= sr
+            pushS arg
+        other -> fail $ "Not a valid jump destination: " ++ show other
 
 execInstruction Store = do
     S key <- popS
@@ -183,9 +209,17 @@ execInstruction Lookup = do
         Nothing ->
             fail $ "undefined variable: " ++ show key
 
-execInstruction Save = do
-    cp <- use machineCP
-    pushR $ CP (Save : cp)
+execInstruction SaveCont = do
+    CP  jmp <- popS 
+    arg <- popS
+    cp  <- use machineCP
+    ss  <- use machineStackS
+    sr  <- use machineStackR
+    env <- use machineEnv
+    
+    pushS $ C $ Cont { contCP = cp, contStackS = ss, contStackR = sr, contEnv = env }
+    pushS $ arg
+    machineCP .= jmp
 
 execInstruction Drop = popS >> return ()
 
@@ -215,8 +249,9 @@ execInstruction SaveEnv = do
 
 execInstruction NewFrame = do
     parent <- popS
-    let ptr = case parent of Nil   -> Nothing
-                             P ptr -> Just ptr
+    ptr <- case parent of Nil   -> return $ Nothing
+                          P ptr -> return $ Just ptr
+                          other -> fail $ "Vm Error: Can't load frame: " ++ show other
     newPtr <- machineMemory %%= newFrame ptr
     pushS $ P newPtr
 
