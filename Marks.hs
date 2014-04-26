@@ -20,8 +20,7 @@ markPtr deref ptr = do
 doMark :: Eq a => a -> (Mark a) Bool
 doMark x = do
     xs <- get 
-    if x `elem` xs then
-        return True 
-    else do
-        put $ x:xs
-        return False
+    if x `elem` xs
+        then return True 
+        else do put $ x:xs
+                return False
