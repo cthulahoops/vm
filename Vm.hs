@@ -90,8 +90,8 @@ runMachine = do
             runMachine
         Nothing -> return ()
 
-apply (Value x) = pushS x
-apply i         = execInstruction i
+apply (Push x) = pushS x
+apply i        = execInstruction i
 
 execInstruction Add   = applyOp (Operator f "+")
     where f (I x) (I y)     = Just $ I (x + y)

@@ -60,13 +60,13 @@ makeIf cond_ then_ else_ = fromList $ [SSymbol "if", cond_, then_, else_]
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
 compileExpr :: Bool -> SExpr -> [Symbol]
-compileExpr isTail (SInt x)       = [Value $ I x]
-compileExpr isTail (SBool True)   = [Value $ B True]
-compileExpr isTail (SBool False)  = [Value $ B False]
-compileExpr isTail (SString str)  = [Value $ Str str]
+compileExpr isTail (SInt x)       = [Push $ I x]
+compileExpr isTail (SBool True)   = [Push $ B True]
+compileExpr isTail (SBool False)  = [Push $ B False]
+compileExpr isTail (SString str)  = [Push $ Str str]
 compileExpr isTail (SCons (SSymbol "quote") expr)  = compileQuoted expr
 compileExpr isTail (SCons (SSymbol "define") (SCons (SSymbol name) (SCons body SNil)))
-                           = compileExpr False body ++ [vmSymbol name, Store, Value Nil]
+                           = compileExpr False body ++ [vmSymbol name, Store, Push Nil]
 compileExpr isTail (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda vars body
 compileExpr isTail (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
                            = compileIf isTail cond true_branch false_branch
@@ -76,15 +76,15 @@ compileExpr isTail (SCons (SSymbol "apply") (SCons function (SCons args SNil))) 
 compileExpr isTail (SCons f args)   = applyLambda isTail (compileExpr False f) (compileArgs args)
 compileExpr isTail (SSymbol x)    = [vmSymbol x, Lookup]
 
-compileQuoted SNil     = [Value Nil]
+compileQuoted SNil     = [Push Nil]
 compileQuoted (SCons car cdr) = compileQuoted cdr ++ compileQuoted car ++ [Cons]
 compileQuoted (SSymbol x)    = [vmSymbol x]
-compileQuoted (SInt x)       = [Value $ I x]
-compileQuoted (SString x)    = [Value $ Str x]
+compileQuoted (SInt x)       = [Push $ I x]
+compileQuoted (SString x)    = [Push $ Str x]
 
 compileIf isTail cond true_branch false_branch = block(compileExpr True true_branch)
                                               ++ block(compileExpr True false_branch)
-                                              ++ compileExpr False cond ++ [Value (B False), Eq, Not]
+                                              ++ compileExpr False cond ++ [Push (B False), Eq, Not]
                                               ++ [If, (if isTail then Jump else Call)]
 
 compileLambda :: SExpr -> SExpr -> [Symbol]
@@ -98,32 +98,32 @@ compileLambda params body = [SaveEnv]
           compileParams (SSymbol x)              = [vmSymbol x, Store]
           compileParams (SCons (SSymbol x) rest) = [DeCons, vmSymbol x, Store] ++ compileParams rest
 
-compileVmOp arity ins = [Value Nil] ++ block functionBody ++ [Cons]
+compileVmOp arity ins = [Push Nil] ++ block functionBody ++ [Cons]
          where functionBody = [Drop]
                            ++ concat (replicate (fromIntegral arity) [DeCons, Flip])
                            ++ [Drop]
                            ++ mapToList getSymbol ins
-               getSymbol (SSymbol "nil") = Value Nil
+               getSymbol (SSymbol "nil") = Push Nil
                getSymbol (SSymbol x)     = readInstruction x
                getSymbol a@(SCons _ _)   = head $ block $ map getSymbol $ toList a
 
-compileSeqence :: Bool -> [SExpr] -> [Ins]
+compileSeqence :: Bool -> [SExpr] -> [Symbol]
 compileSeqence isTail seq = concat
                           $ intersperse [Drop]
                           $ map (compileExpr False) (init seq) ++ [compileExpr isTail (last seq)]
 
-block instructions = [Value (CP instructions)]
+block instructions = [Push (CP instructions)]
 
-compileArgs args = [Value Nil] ++ concat (reverse (mapToList (\x -> compileExpr False x ++ [Cons]) args))
+compileArgs args = [Push Nil] ++ concat (reverse (mapToList (\x -> compileExpr False x ++ [Cons]) args))
 
 -- Calling a function:
---  Example: [SaveEnv,Value Nil,Value (I 7),Cons,Value (S "f"),Lookup,DeCons,Call,Flip,LoadEnv] 
+--  Example: [SaveEnv,Push Nil,Push (I 7),Cons,Push (S "f"),Lookup,DeCons,Call,Flip,LoadEnv] 
 --  SaveEnv - push callers environment onto the stack
---  Value Nil, Value (I 7), Cons - Push function arguments onto the stack.
---  Value (S "f"), Lookup - Get function to call onto the stack.
+--  Push Nil, Push (I 7), Cons - Push function arguments onto the stack.
+--  Push (S "f"), Lookup - Get function to call onto the stack.
 --  Decons - Unpack function environment and code.
 --  Call - Push next instruction to return stack and jump to code.
---  On return, stack will consist of [Return Value, Caller Env]
+--  On return, stack will consist of [Return Push, Caller Env]
 --  Flip - Swap environment and return value.
 --  LoadEnv - Restore the environment.
 applyLambda :: Bool -> [Symbol] -> [Symbol] -> [Symbol]
@@ -133,23 +133,23 @@ applyLambda True  function args = callTail   $ args ++ function
 callTail   code = code ++ [DeCons, Jump]
 callReturn code = [SaveEnv] ++ code ++ [DeCons, Call, Flip, LoadEnv]
 
-vmSymbol x = Value $ S x
+vmSymbol x = Push $ S x
 
-optimise = optimiseValueDrop . unusedFrame
+optimise = optimisePushDrop . unusedFrame
 
-optimiseValueDrop [] = []
-optimiseValueDrop (Value _:Drop:code) = optimiseValueDrop code
-optimiseValueDrop (Value (CP block):code) = Value (CP (optimiseValueDrop block)):optimiseValueDrop code
-optimiseValueDrop (x:code) = x:optimiseValueDrop code
+optimisePushDrop [] = []
+optimisePushDrop (Push _:Drop:code) = optimisePushDrop code
+optimisePushDrop (Push (CP block):code) = Push (CP (optimisePushDrop block)):optimisePushDrop code
+optimisePushDrop (x:code) = x:optimisePushDrop code
 
 unusedFrame (NewFrame:LoadEnv:code) = (if usesStore code then [NewFrame,LoadEnv] else [LoadEnv]) ++ unusedFrame code
-unusedFrame (Value (CP block):code) = Value (CP (unusedFrame block)):unusedFrame code
+unusedFrame (Push (CP block):code) = Push (CP (unusedFrame block)):unusedFrame code
 unusedFrame (x:code) = x:unusedFrame code
 unusedFrame [] = []
 
 usesStore (Store:code) = True
 usesStore (NewFrame:LoadEnv:code) = False
-usesStore (Value (CP block):code) = usesStore block || usesStore code
+usesStore (Push (CP block):code) = usesStore block || usesStore code
 usesStore (x:code) = usesStore code
 usesStore [] = False
 

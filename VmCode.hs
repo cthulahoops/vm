@@ -16,7 +16,7 @@ termList = endBy term (many (space <|> comment))
 
 term  = try value <|> try instruction
 
-value = Value <$> (number <|> symbol <|> stringLit <|> block <|> bool <|> nil)
+value = Push <$> (number <|> symbol <|> stringLit <|> block <|> bool <|> nil)
 
 instruction = choice [try (string k >> return v) | (k, v) <- instructionMap]
 
@@ -49,7 +49,7 @@ nil  = string "nil" >> return Nil
 comment = char '#' >> many (noneOf "\n") >> (optional $ char '\n') >> return '\n'
 
 formatProgram xs = concat $ intersperse " " $ map f xs
-    where f (Value x) = formatVal x
+    where f (Push x) = formatVal x
           f ins = head $ [k | (k, v) <- instructionMap, v == ins]
 
 readInstruction x = case [v | (k, v) <- instructionMap, k == x] of
