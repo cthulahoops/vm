@@ -82,10 +82,11 @@ compileQuoted (SSymbol x)    = [vmSymbol x]
 compileQuoted (SInt x)       = [Push $ I x]
 compileQuoted (SString x)    = [Push $ Str x]
 
-compileIf isTail cond true_branch false_branch = block(compileExpr True true_branch)
-                                              ++ block(compileExpr True false_branch)
-                                              ++ compileExpr False cond ++ [Push (B False), Eq, Not]
-                                              ++ [If, (if isTail then Jump else Call)]
+compileIf :: Bool -> SExpr -> SExpr -> SExpr -> [Symbol]
+compileIf isTail cond trueBranch falseBranch = block(compileExpr True trueBranch)
+                                            ++ block(compileExpr True falseBranch)
+                                            ++ compileExpr False cond ++ [Push (B False), Eq, Not]
+                                            ++ [If, (if isTail then Jump else Call)]
 
 compileLambda :: SExpr -> SExpr -> [Symbol]
 compileLambda params body = [SaveEnv]
