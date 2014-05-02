@@ -1,23 +1,23 @@
-module Parse where
+module Parse (parseExprs) where
 
 import Data.Functor
 import Control.Applicative ((<*), (*>))
 import Text.ParserCombinators.Parsec hiding (State)
 import Text.Parsec.Numbers
 
-import SExprs
+import SExprs hiding (symbol)
 
 parseExprs :: String -> Either ParseError [SExpr]
 parseExprs = parse (sexprList <* eof) "(unknown!)"
 
-sexpr = parens <|> (try int) <|> bool <|> symbol <|> stringLit <|> quote
+sexpr = parens <|> (SValue <$> ((try int) <|> bool <|> symbol <|> stringLit)) <|> quote
 
 sexprList = many space >> endBy sexpr (many space)
 
 quote = do
      char '\''
      quoted <- sexpr
-     return $ SCons (SSymbol "quote") quoted
+     return $ SCons (SValue $ SSymbol "quote") quoted
 
 -- parens = SList <$> ((char '(' *> sexprList  <* char ')') <|> (char '[' *> sexprList  <* char ']'))
 

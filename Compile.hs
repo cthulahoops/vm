@@ -13,7 +13,7 @@ compileTokens :: SExpr -> [Symbol]
 compileTokens = optimise . compileExpr False . transform
 
 transform :: SExpr -> SExpr
-transform x@(SCons (SSymbol "quote") xs) = x
+transform x@(SCons (SValue (SSymbol "quote")) xs) = x
 transform x@(SCons car cdr) = if transformed == x
                             then mapCars transform transformed
                             else transform transformed
@@ -22,65 +22,77 @@ transform x = x
 
 mapToList f = map f . toList
 
-transform' :: SExpr -> SExpr -> SExpr
-transform' (SSymbol "cond") expr = condToIf expr
-transform' (SSymbol "let")  expr = letToLambda expr
-transform' (SSymbol "let*") expr = letStarToLet expr
-transform' (SSymbol "define") (SCons (SCons (SSymbol name) vars) body) = 
-    fromList $ [SSymbol "define", SSymbol name, makeLambda vars body]
-transform' (SSymbol "and") exprs = andToIf exprs
-transform' (SSymbol "or") exprs = orToIf exprs
-transform' car cdr = SCons car cdr
+transform' :: SExpr -> SExpr -> SExpr 
+transform' car cdr | isSymbol "cond" car   = condToIf cdr
+                   | isSymbol "let" car    = letToLambda cdr
+                   | isSymbol "let*" car   = letStarToLet cdr
+                   | isSymbol "define" car = transformDefine cdr
+                   | isSymbol "and" car    = andToIf cdr
+                   | isSymbol "or" car     = orToIf cdr
+                   | otherwise             = SCons car cdr
+
+transformDefine (SCons (SCons (SValue (SSymbol name)) vars) body) =
+    fromList $ [SValue (SSymbol "define"), SValue (SSymbol name), makeLambda vars body]
+transformDefine other = (SCons (symbol "define") other)
 
 condToIf SNil = SNil
-condToIf (SCons (SCons (SSymbol "else") body) SNil)  = (SCons (SSymbol "begin") body)
-condToIf (SCons (SCons cond body) more) = makeIf cond (SCons (SSymbol "begin") body) (condToIf more)
+condToIf (SCons (SCons (SValue (SSymbol "else")) body) SNil)  = (SCons (SValue (SSymbol "begin")) body)
+condToIf (SCons (SCons cond body) more) = makeIf cond (SCons (SValue (SSymbol "begin")) body) (condToIf more)
 
 letToLambda (SCons bindings body) = fromList $ (makeLambda (fromList vars) body):values
      where (vars, values) = unzip $ mapToList toPair bindings
-           toPair (SCons (SSymbol x) (SCons expr SNil)) = (SSymbol x, expr)
+           toPair (SCons (SValue (SSymbol x)) (SCons expr SNil)) = (SValue $ SSymbol x, expr)
 
-letStarToLet (SCons SNil body) = (SCons (SSymbol "begin") body)
-letStarToLet (SCons (SCons binding bindings) body) = fromList [SSymbol "let", fromList [binding], fromList (SSymbol "let*":bindings:toList body)]
+letStarToLet (SCons SNil body) = (SCons (SValue (SSymbol "begin")) body)
+letStarToLet (SCons (SCons binding bindings) body) = fromList [SValue (SSymbol "let"), fromList [binding], fromList (SValue (SSymbol "let*"):bindings:toList body)]
 
-andToIf SNil = SBool True
-andToIf (SCons expr SNil) = fromList [SSymbol "let",
-    fromList [fromList [SSymbol "$and-var", expr]],
-    makeIf (SSymbol "$and-var") (SSymbol "$and-var") (SBool False)]
-andToIf (SCons expr exprs) = makeIf expr (SCons (SSymbol "and") exprs) (SBool False)
 
-orToIf SNil = SBool False
-orToIf (SCons expr exprs) = fromList [SSymbol "let",
-    fromList [fromList [SSymbol "$or-var", expr]],
-    makeIf (SSymbol "$or-var") (SSymbol "$or-var") (SCons (SSymbol "or") exprs)]
+andToIf SNil = strue
+andToIf (SCons expr SNil) = fromList [symbol "let",
+    fromList [fromList [symbol "$and-var", expr]],
+    makeIf (symbol "$and-var") (symbol "$and-var") sfalse]
+andToIf (SCons expr exprs) = makeIf expr (SCons (symbol "and") exprs) sfalse
 
-makeLambda vars body = fromList $ (SSymbol "lambda":vars:toList body)
-makeIf cond_ then_ else_ = fromList $ [SSymbol "if", cond_, then_, else_]
+orToIf SNil = sfalse
+orToIf (SCons expr exprs) = fromList [symbol "let",
+    fromList [fromList [symbol "$or-var", expr]],
+    makeIf (symbol "$or-var") (symbol "$or-var") (SCons (symbol "or") exprs)]
+
+makeLambda vars body = fromList $ (symbol "lambda":vars:toList body)
+makeIf cond_ then_ else_ = fromList $ [symbol "if", cond_, then_, else_]
+
+scar (SCons car cdr) = car
+scdr (SCons car cdr) = cdr
+
+unpack3 (SCons a (SCons b (SCons c SNil))) = (a, b, c)
+unpack2 (SCons a (SCons b SNil)) = (a, b)
 
 -- Function Call: "& 7 :f ! ` jmp flip $"
 -- Function Def:  "& [ {} $ :n def 2 :n ! * ] , :f def"
 compileExpr :: Bool -> SExpr -> [Symbol]
-compileExpr isTail (SInt x)       = [Push $ I x]
-compileExpr isTail (SBool True)   = [Push $ B True]
-compileExpr isTail (SBool False)  = [Push $ B False]
-compileExpr isTail (SString str)  = [Push $ Str str]
-compileExpr isTail (SCons (SSymbol "quote") expr)  = compileQuoted expr
-compileExpr isTail (SCons (SSymbol "define") (SCons (SSymbol name) (SCons body SNil)))
-                           = compileExpr False body ++ [vmSymbol name, Store, Push Nil]
-compileExpr isTail (SCons (SSymbol "lambda") (SCons vars body)) = compileLambda vars body
-compileExpr isTail (SCons (SSymbol "if") (SCons cond (SCons true_branch (SCons false_branch SNil))))
-                           = compileIf isTail cond true_branch false_branch
-compileExpr isTail (SCons (SSymbol "$vm-op") (SCons (SInt arity) ins)) = compileVmOp arity ins
-compileExpr isTail (SCons (SSymbol "begin") exprs) = compileSeqence isTail (toList exprs)
-compileExpr isTail (SCons (SSymbol "apply") (SCons function (SCons args SNil))) = applyLambda isTail (compileExpr False function) (compileExpr False args)
-compileExpr isTail (SCons f args)   = applyLambda isTail (compileExpr False f) (compileArgs args)
-compileExpr isTail (SSymbol x)    = [vmSymbol x, Lookup]
+compileExpr isTail (SCons car cdr) 
+    | isSymbol "quote" car  = compileQuoted cdr
+    | isSymbol "define" car = compileDefine cdr
+    | isSymbol "lambda" car = compileLambda (scar cdr) (scdr cdr)
+    | isSymbol "if" car     = let (cond, trueBranch, falseBranch) = unpack3 cdr
+                                in compileIf isTail cond trueBranch falseBranch
+    | isSymbol "$vm-op" car = compileVmOp (scar cdr) (scdr cdr)
+    | isSymbol "begin" car  = compileSeqence isTail $ toList cdr
+    | isSymbol "apply" car  = let (function, args) = unpack2 cdr
+                                in applyLambda isTail (compileExpr False function) (compileExpr False args)
+    | otherwise             = applyLambda isTail (compileExpr False car) (compileArgs cdr)
+compileExpr isTail (SValue (SSymbol x)) = [Push $ S x, Lookup]
+compileExpr isTail (SValue x)  = [Push $ compileValue x]
 
-compileQuoted SNil     = [Push Nil]
+compileValue :: SValue -> Val
+compileValue (SInt x)    = I x
+compileValue (SBool x)   = B x
+compileValue (SString x) = Str x
+compileValue (SSymbol x) = S x
+
+compileQuoted SNil            = [Push Nil]
 compileQuoted (SCons car cdr) = compileQuoted cdr ++ compileQuoted car ++ [Cons]
-compileQuoted (SSymbol x)    = [vmSymbol x]
-compileQuoted (SInt x)       = [Push $ I x]
-compileQuoted (SString x)    = [Push $ Str x]
+compileQuoted (SValue val)    = [Push $ compileValue val]
 
 compileIf :: Bool -> SExpr -> SExpr -> SExpr -> [Symbol]
 compileIf isTail cond trueBranch falseBranch = block(compileExpr True trueBranch)
@@ -96,16 +108,19 @@ compileLambda params body = [SaveEnv]
                          ++ [Cons]
     where compileBody body = map (compileExpr False) (init body) ++ [compileExpr True (last body)]
           compileParams SNil                     = [Drop]
-          compileParams (SSymbol x)              = [vmSymbol x, Store]
-          compileParams (SCons (SSymbol x) rest) = [DeCons, vmSymbol x, Store] ++ compileParams rest
+          compileParams (SValue (SSymbol x))     = [Push $ S x, Store]
+          compileParams (SCons (SValue (SSymbol x)) rest) = [DeCons, Push $ S x, Store] ++ compileParams rest
 
-compileVmOp arity ins = [Push Nil] ++ block functionBody ++ [Cons]
+compileDefine (SCons (SValue (SSymbol name)) (SCons body SNil)) =
+    compileExpr False body ++ [Push $ S name, Store, Push Nil]
+
+compileVmOp (SValue (SInt arity)) ins = [Push Nil] ++ block functionBody ++ [Cons]
          where functionBody = [Drop]
                            ++ concat (replicate (fromIntegral arity) [DeCons, Flip])
                            ++ [Drop]
                            ++ mapToList getSymbol ins
-               getSymbol (SSymbol "nil") = Push Nil
-               getSymbol (SSymbol x)     = readInstruction x
+               getSymbol (SValue (SSymbol "nil")) = Push Nil
+               getSymbol (SValue (SSymbol x))     = readInstruction x
                getSymbol a@(SCons _ _)   = head $ block $ map getSymbol $ toList a
 
 compileSeqence :: Bool -> [SExpr] -> [Symbol]
@@ -133,8 +148,6 @@ applyLambda True  function args = callTail   $ args ++ function
 
 callTail   code = code ++ [DeCons, Jump]
 callReturn code = [SaveEnv] ++ code ++ [DeCons, Call, Flip, LoadEnv]
-
-vmSymbol x = Push $ S x
 
 optimise = optimisePushDrop . unusedFrame
 
