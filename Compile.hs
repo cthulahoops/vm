@@ -77,7 +77,7 @@ compileExpr isTail (SCons car cdr)
     | isSymbol "if" car     = let (cond, trueBranch, falseBranch) = unpack3 cdr
                                 in compileIf isTail cond trueBranch falseBranch
     | isSymbol "$vm-op" car = compileVmOp (scar cdr) (scdr cdr)
-    | isSymbol "begin" car  = compileSeqence isTail $ toList cdr
+    | isSymbol "begin" car  = compileSequence isTail $ toList cdr
     | isSymbol "apply" car  = let (function, args) = unpack2 cdr
                                 in applyLambda isTail (compileExpr False function) (compileExpr False args)
     | otherwise             = applyLambda isTail (compileExpr False car) (compileArgs cdr)
@@ -104,7 +104,7 @@ compileLambda :: SExpr -> SExpr -> [Symbol]
 compileLambda params body = [SaveEnv]
                          ++ block ([NewFrame, LoadEnv]
                                  ++ compileParams params
-                                 ++ compileSeqence True (toList body))
+                                 ++ compileSequence True (toList body))
                          ++ [Cons]
     where compileBody body = map (compileExpr False) (init body) ++ [compileExpr True (last body)]
           compileParams SNil                     = [Drop]
@@ -123,8 +123,8 @@ compileVmOp (SValue (SInt arity)) ins = [Push Nil] ++ block functionBody ++ [Con
                getSymbol (SValue (SSymbol x))     = readInstruction x
                getSymbol a@(SCons _ _)   = head $ block $ map getSymbol $ toList a
 
-compileSeqence :: Bool -> [SExpr] -> [Symbol]
-compileSeqence isTail seq = concat
+compileSequence :: Bool -> [SExpr] -> [Symbol]
+compileSequence isTail seq = concat
                           $ intersperse [Drop]
                           $ map (compileExpr False) (init seq) ++ [compileExpr isTail (last seq)]
 
