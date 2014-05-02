@@ -7,10 +7,8 @@ import VmCode
 
 import SExprs
 
-compile = concat . intersperse "\n" . map formatProgram . map compileTokens
-
-compileTokens :: SExpr -> [Symbol]
-compileTokens = optimise . compileExpr False . transform
+compile :: [SExpr] -> [Symbol]
+compile = optimise . compileSequence False . map transform
 
 transform :: SExpr -> SExpr
 transform x@(SCons (SValue (SSymbol "quote")) xs) = x

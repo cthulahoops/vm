@@ -1,3 +1,4 @@
+import VmCode
 import Parse
 import Compile
 import System.Environment
@@ -8,11 +9,11 @@ main = do
         []      -> getContents
         [fname] -> readFile fname
     stdlib <- readFile "lib/stdlib.ss"
-    putStrLn $ (compile.parse) stdlib
+    putStrLn $ (formatProgram.compile.parse) stdlib
     putStrLn ""
     case parseExprs code of
         Right p ->
-            putStrLn $ compile p
+            putStrLn $ formatProgram $ compile p
         Left error -> do
             putStrLn "Parse Error"
             putStrLn $ show error

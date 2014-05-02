@@ -62,7 +62,7 @@ formatVal (B False) = "false"
 formatVal Nil = "nil"
 formatVal (S x) = ":" ++ x
 formatVal (Str x) = show x
-formatVal (CP xs) = "[ " ++ formatProgram xs ++ " ]"
+formatVal (CP xs) = "\n[ " ++ formatProgram xs ++ " ]\n"
 
 instructionMap = [("+", Add),
                ("-", Sub),

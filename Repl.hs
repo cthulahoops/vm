@@ -30,7 +30,4 @@ main = do
                         print error
                         return machine
 
-parseCompile code = do
-    p <- parseExprs code
-    let mc = compile p
-    parseProgram mc
+parseCompile code = compile <$> parseExprs code
