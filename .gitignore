@@ -1,8 +1,5 @@
 *.hi
 *.o
-Run
-LispC
-Repl
 .*.sw*
 *~
 *.s
