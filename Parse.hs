@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Parse (parseExprs) where
 
 import Data.Functor

@@ -2,7 +2,7 @@ module VmCode (parseProgram, formatProgram, readInstruction) where
 
 import Data.List
 import Control.Applicative ((<*), (*>), (<$>))
-import Text.ParserCombinators.Parsec hiding (State)
+import Text.Parsec hiding (State, Error)
 import Text.Parsec.Numbers
 
 import VmTypes

@@ -11,7 +11,7 @@ import Data.Foldable hiding (concatMap)
 import Data.Maybe
 import Data.List
 import Control.Applicative
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.State
 import Text.Printf
 
@@ -22,7 +22,7 @@ import Memory
 import Stack
 import Marks
 
-type Vm = StateT MachineState (ErrorT String IO)
+type Vm = StateT MachineState (ExceptT String IO)
 type Name = String
 type VmMemory = Memory Name Val
 
@@ -48,7 +48,7 @@ evalVm machine = fst <$> runVm machine
 execVm machine = snd <$> runVm machine
 
 runVm machine = do
-    result <- runErrorT $ runStateT (runMachine >> popS) machine
+    result <- runExceptT $ runStateT (runMachine >> popS) machine
     case result of
         Right r ->
             return r
