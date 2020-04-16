@@ -62,3 +62,8 @@ Run scheme code directly with ```RunScheme```:
 $ ./RunScheme tests/fib.ss
 ```
 
+## Tests
+
+```
+./run_tests.sh
+```
